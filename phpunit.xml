@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         verbose="true"
+         stopOnFailure="false">
+    <testsuites>
+        <testsuite name="WP WhatsApp Business Test Suite">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    
+    <coverage>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+        <exclude>
+            <directory>vendor</directory>
+            <directory>tests</directory>
+            <file>wp-whatsapp-business.php</file>
+        </exclude>
+        <report>
+            <html outputDirectory="coverage"/>
+            <text outputFile="coverage.txt"/>
+        </report>
+    </coverage>
+    
+    <php>
+        <env name="WP_TESTS_DIR" value="/tmp/wordpress-tests-lib"/>
+        <env name="WP_CORE_DIR" value="/tmp/wordpress/"/>
+        <env name="WP_DEBUG" value="true"/>
+        <env name="WP_DEBUG_LOG" value="true"/>
+        <env name="WP_DEBUG_DISPLAY" value="false"/>
+    </php>
+    
+    <listeners>
+        <listener class="Tests\Bootstrap\WordPressListener">
+            <arguments>
+                <array>
+                    <element key="wp_root_dir">
+                        <string>/tmp/wordpress</string>
+                    </element>
+                    <element key="wp_tests_dir">
+                        <string>/tmp/wordpress-tests-lib</string>
+                    </element>
+                </array>
+            </arguments>
+        </listener>
+    </listeners>
+</phpunit> 

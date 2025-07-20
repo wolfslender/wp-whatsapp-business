@@ -1,0 +1,100 @@
+# Composer
+/vendor/
+composer.lock
+
+# WordPress
+wp-config.php
+wp-content/uploads/
+wp-content/cache/
+wp-content/backup-db/
+wp-content/backups/
+wp-content/blogs.dir/
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/mu-plugins/
+wp-content/wp-cache-config.php
+wp-content/plugins/hello.php
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Build
+/build/
+/dist/
+/node_modules/
+
+# Tests
+/coverage/
+.phpunit.result.cache
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Cache
+cache/
+tmp/
+
+# Documentation
+/docs/
+
+# Backup files
+*.sql
+*.sql.gz
+*.zip
+*.tar.gz
+
+# WordPress specific
+wp-content/advanced-cache.php
+wp-content/wp-cache-config.php
+wp-content/plugins/wp-cache/
+wp-content/plugins/hello.php
+wp-content/plugins/index.php
+wp-content/themes/index.php
+wp-content/uploads/
+wp-content/upgrade/
+wp-content/backup-db/
+wp-content/backups/
+wp-content/blogs.dir/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/mu-plugins/
+wp-content/wp-cache-config.php
+wp-content/plugins/hello.php
+
+# Plugin specific
+*.pot
+*.po
+*.mo
+languages/*.mo
+languages/*.po
+
+# Development
+.sass-cache/
+*.css.map
+*.js.map 
