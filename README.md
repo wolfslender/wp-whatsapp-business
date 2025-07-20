@@ -257,9 +257,9 @@ Este proyecto está licenciado bajo la Licencia GPL v2 o posterior - ver el arch
 
 Para soporte técnico, por favor contacta a través de:
 
-- **Email**: soporte@example.com
-- **WhatsApp**: +1234567890
-- **Documentación**: https://docs.example.com
+- **Email**: oliverodev@hotmail.com
+- **WhatsApp**: +1829-983-2502
+- **Documentación**: Cooming Soon 
 
 ## Changelog
 
@@ -278,8 +278,4 @@ Desarrollado con ❤️ para la comunidad de WordPress.
 
 ---
 
-<<<<<<< HEAD
 **Nota**: Este plugin requiere una cuenta de WhatsApp Business API activa para funcionar correctamente.
-=======
-**Nota**: Este plugin requiere una cuenta de WhatsApp Business API activa para funcionar correctamente. 
->>>>>>> 1480a641d367786f9fe6f4acb22bb5357fe619b7
