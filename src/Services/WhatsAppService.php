@@ -8,610 +8,503 @@
 
 namespace WPWhatsAppBusiness\Services;
 
+use WPWhatsAppBusiness\Services\Interfaces\WhatsAppServiceInterface;
+use WPWhatsAppBusiness\Services\Interfaces\ConfigServiceInterface;
+use WPWhatsAppBusiness\Services\Interfaces\ValidationServiceInterface;
+use WPWhatsAppBusiness\Services\Config\WhatsAppConfig;
+
 /**
- * Clase para manejar la integración con WhatsApp Business API
+ * Servicio principal de WhatsApp Business API
  */
-class WhatsAppService {
-
-    /**
-     * Servicio de configuración
-     *
-     * @var ConfigService
-     */
-    private $config_service;
-
-    /**
-     * Servicio de validación
-     *
-     * @var ValidationService
-     */
-    private $validation_service;
-
-    /**
-     * URL base de la API de WhatsApp
-     *
-     * @var string
-     */
+class WhatsAppService implements WhatsAppServiceInterface
+{
     private const API_BASE_URL = 'https://graph.facebook.com/v18.0';
+    private const CACHE_PREFIX = 'wp_whatsapp_rate_limit_';
+    private const CACHE_EXPIRATION = 3600; // 1 hora
 
-    /**
-     * Constructor
-     *
-     * @param ConfigService $config_service Servicio de configuración
-     * @param ValidationService $validation_service Servicio de validación
-     */
-    public function __construct(ConfigService $config_service, ValidationService $validation_service) {
-        $this->config_service = $config_service;
-        $this->validation_service = $validation_service;
+    private ConfigServiceInterface $configService;
+    private ValidationServiceInterface $validationService;
+    private WhatsAppConfig $config;
+
+    public function __construct(
+        ConfigServiceInterface $configService,
+        ValidationServiceInterface $validationService
+    ) {
+        $this->configService = $configService;
+        $this->validationService = $validationService;
+        $this->config = $this->configService->getConfig();
     }
 
-    /**
-     * Enviar mensaje de texto
-     *
-     * @param string $phone_number Número de teléfono del destinatario
-     * @param string $message Mensaje a enviar
-     * @param array $options Opciones adicionales
-     * @return array
-     */
-    public function sendTextMessage(string $phone_number, string $message, array $options = []): array {
-        // Validar número de teléfono
-        if (!$this->validation_service->isValidPhoneNumber($phone_number)) {
-            return [
-                'success' => false,
-                'error' => 'Número de teléfono inválido',
-                'code' => 'INVALID_PHONE'
+    public function sendTextMessage(string $phoneNumber, string $message, array $options = []): array
+    {
+        try {
+            // Validar entrada
+            $validationResult = $this->validationService->validatePhoneNumber($phoneNumber);
+            if (!empty($validationResult)) {
+                return $this->createErrorResponse('validation_error', 'Número de teléfono inválido', $validationResult);
+            }
+
+            $messageValidation = $this->validationService->validateMessage($message, $options);
+            if (!empty($messageValidation)) {
+                return $this->createErrorResponse('validation_error', 'Mensaje inválido', $messageValidation);
+            }
+
+            // Verificar rate limit
+            if (!$this->checkRateLimit($phoneNumber)) {
+                return $this->createErrorResponse('rate_limit_exceeded', 'Se ha excedido el límite de mensajes');
+            }
+
+            // Verificar si el negocio está abierto
+            if (!$this->isBusinessOpen()) {
+                return $this->createErrorResponse('business_closed', 'El negocio está cerrado en este momento');
+            }
+
+            // Preparar datos del mensaje
+            $formattedPhone = $this->formatPhoneNumber($phoneNumber);
+            $sanitizedMessage = $this->validationService->sanitize($message, 'text');
+
+            $messageData = [
+                'messaging_product' => 'whatsapp',
+                'to' => $formattedPhone,
+                'type' => 'text',
+                'text' => [
+                    'body' => $sanitizedMessage
+                ]
             ];
+
+            // Enviar mensaje
+            $response = $this->makeApiRequest('messages', $messageData);
+
+            if ($response['success']) {
+                do_action('wp_whatsapp_business_message_sent', $response['data'], $formattedPhone, $sanitizedMessage);
+            } else {
+                do_action('wp_whatsapp_business_message_error', $response['error'], $formattedPhone, $sanitizedMessage);
+            }
+
+            return $response;
+
+        } catch (\Exception $e) {
+            $this->logError('Error al enviar mensaje de texto: ' . $e->getMessage());
+            return $this->createErrorResponse('api_error', 'Error interno del servidor');
+        }
+    }
+
+    public function sendImageMessage(string $phoneNumber, string $imageUrl, string $caption = '', array $options = []): array
+    {
+        try {
+            // Validar entrada
+            $validationResult = $this->validationService->validatePhoneNumber($phoneNumber);
+            if (!empty($validationResult)) {
+                return $this->createErrorResponse('validation_error', 'Número de teléfono inválido', $validationResult);
+            }
+
+            $urlValidation = $this->validationService->validateUrl($imageUrl);
+            if (!empty($urlValidation)) {
+                return $this->createErrorResponse('validation_error', 'URL de imagen inválida', $urlValidation);
+            }
+
+            if (!empty($caption)) {
+                $captionValidation = $this->validationService->validateMessage($caption, ['max_length' => 1024]);
+                if (!empty($captionValidation)) {
+                    return $this->createErrorResponse('validation_error', 'Caption inválido', $captionValidation);
+                }
+            }
+
+            // Verificar rate limit
+            if (!$this->checkRateLimit($phoneNumber)) {
+                return $this->createErrorResponse('rate_limit_exceeded', 'Se ha excedido el límite de mensajes');
+            }
+
+            // Verificar si el negocio está abierto
+            if (!$this->isBusinessOpen()) {
+                return $this->createErrorResponse('business_closed', 'El negocio está cerrado en este momento');
+            }
+
+            // Preparar datos del mensaje
+            $formattedPhone = $this->formatPhoneNumber($phoneNumber);
+            $sanitizedUrl = $this->validationService->sanitize($imageUrl, 'url');
+            $sanitizedCaption = $this->validationService->sanitize($caption, 'text');
+
+            $messageData = [
+                'messaging_product' => 'whatsapp',
+                'to' => $formattedPhone,
+                'type' => 'image',
+                'image' => [
+                    'link' => $sanitizedUrl
+                ]
+            ];
+
+            if (!empty($sanitizedCaption)) {
+                $messageData['image']['caption'] = $sanitizedCaption;
+            }
+
+            // Enviar mensaje
+            $response = $this->makeApiRequest('messages', $messageData);
+
+            if ($response['success']) {
+                do_action('wp_whatsapp_business_message_sent', $response['data'], $formattedPhone, 'image');
+            } else {
+                do_action('wp_whatsapp_business_message_error', $response['error'], $formattedPhone, 'image');
+            }
+
+            return $response;
+
+        } catch (\Exception $e) {
+            $this->logError('Error al enviar mensaje con imagen: ' . $e->getMessage());
+            return $this->createErrorResponse('api_error', 'Error interno del servidor');
+        }
+    }
+
+    public function sendButtonMessage(string $phoneNumber, string $header, string $body, array $buttons, array $options = []): array
+    {
+        try {
+            // Validar entrada
+            $validationResult = $this->validationService->validatePhoneNumber($phoneNumber);
+            if (!empty($validationResult)) {
+                return $this->createErrorResponse('validation_error', 'Número de teléfono inválido', $validationResult);
+            }
+
+            $headerValidation = $this->validationService->validateMessage($header, ['max_length' => 60]);
+            if (!empty($headerValidation)) {
+                return $this->createErrorResponse('validation_error', 'Header inválido', $headerValidation);
+            }
+
+            $bodyValidation = $this->validationService->validateMessage($body, ['max_length' => 1024]);
+            if (!empty($bodyValidation)) {
+                return $this->createErrorResponse('validation_error', 'Body inválido', $bodyValidation);
+            }
+
+            // Validar botones
+            if (empty($buttons) || count($buttons) > 3) {
+                return $this->createErrorResponse('validation_error', 'Debe proporcionar entre 1 y 3 botones');
+            }
+
+            foreach ($buttons as $index => $button) {
+                if (!isset($button['type']) || $button['type'] !== 'reply') {
+                    return $this->createErrorResponse('validation_error', "Botón {$index}: tipo inválido");
+                }
+                if (!isset($button['reply']['id']) || !isset($button['reply']['title'])) {
+                    return $this->createErrorResponse('validation_error', "Botón {$index}: estructura inválida");
+                }
+                if (strlen($button['reply']['title']) > 20) {
+                    return $this->createErrorResponse('validation_error', "Botón {$index}: título demasiado largo");
+                }
+            }
+
+            // Verificar rate limit
+            if (!$this->checkRateLimit($phoneNumber)) {
+                return $this->createErrorResponse('rate_limit_exceeded', 'Se ha excedido el límite de mensajes');
+            }
+
+            // Verificar si el negocio está abierto
+            if (!$this->isBusinessOpen()) {
+                return $this->createErrorResponse('business_closed', 'El negocio está cerrado en este momento');
+            }
+
+            // Preparar datos del mensaje
+            $formattedPhone = $this->formatPhoneNumber($phoneNumber);
+            $sanitizedHeader = $this->validationService->sanitize($header, 'text');
+            $sanitizedBody = $this->validationService->sanitize($body, 'text');
+
+            $messageData = [
+                'messaging_product' => 'whatsapp',
+                'to' => $formattedPhone,
+                'type' => 'interactive',
+                'interactive' => [
+                    'type' => 'button',
+                    'header' => [
+                        'type' => 'text',
+                        'text' => $sanitizedHeader
+                    ],
+                    'body' => [
+                        'text' => $sanitizedBody
+                    ],
+                    'action' => [
+                        'buttons' => $buttons
+                    ]
+                ]
+            ];
+
+            // Enviar mensaje
+            $response = $this->makeApiRequest('messages', $messageData);
+
+            if ($response['success']) {
+                do_action('wp_whatsapp_business_message_sent', $response['data'], $formattedPhone, 'button');
+            } else {
+                do_action('wp_whatsapp_business_message_error', $response['error'], $formattedPhone, 'button');
+            }
+
+            return $response;
+
+        } catch (\Exception $e) {
+            $this->logError('Error al enviar mensaje con botones: ' . $e->getMessage());
+            return $this->createErrorResponse('api_error', 'Error interno del servidor');
+        }
+    }
+
+    public function generateWhatsAppUrl(string $phoneNumber, string $message = '', string $type = 'web'): string
+    {
+        $formattedPhone = $this->formatPhoneNumber($phoneNumber);
+        
+        if (empty($formattedPhone)) {
+            return '';
         }
 
-        // Validar mensaje
-        if (empty($message)) {
-            return [
-                'success' => false,
-                'error' => 'El mensaje no puede estar vacío',
-                'code' => 'EMPTY_MESSAGE'
-            ];
+        $sanitizedMessage = $this->validationService->sanitize($message, 'text');
+        $encodedMessage = urlencode($sanitizedMessage);
+
+        switch ($type) {
+            case 'web':
+                $baseUrl = 'https://wa.me/';
+                break;
+            case 'mobile':
+                $baseUrl = 'whatsapp://send?phone=';
+                break;
+            case 'api':
+                return $this->generateApiUrl($formattedPhone, $sanitizedMessage);
+            default:
+                $baseUrl = 'https://wa.me/';
         }
 
-        // Preparar datos del mensaje
-        $message_data = [
+        $url = $baseUrl . ltrim($formattedPhone, '+');
+        
+        if (!empty($encodedMessage)) {
+            $url .= '?text=' . $encodedMessage;
+        }
+
+        return $url;
+    }
+
+    public function validatePhoneNumber(string $phoneNumber): bool
+    {
+        $validationResult = $this->validationService->validatePhoneNumber($phoneNumber);
+        return empty($validationResult);
+    }
+
+    public function formatPhoneNumber(string $phoneNumber): string
+    {
+        if (empty($phoneNumber)) {
+            return '';
+        }
+
+        // Remover todos los caracteres excepto números y +
+        $cleanNumber = preg_replace('/[^0-9+]/', '', $phoneNumber);
+        
+        // Asegurar que comience con +
+        if (!str_starts_with($cleanNumber, '+')) {
+            $cleanNumber = '+' . $cleanNumber;
+        }
+
+        // Validar formato E.164
+        if (!preg_match('/^\+[1-9]\d{1,14}$/', $cleanNumber)) {
+            return '';
+        }
+
+        return $cleanNumber;
+    }
+
+    public function detectDevice(): string
+    {
+        if (!isset($_SERVER['HTTP_USER_AGENT'])) {
+            return 'desktop';
+        }
+
+        $userAgent = $_SERVER['HTTP_USER_AGENT'];
+        
+        // Patrones para detectar dispositivos móviles
+        $mobilePatterns = [
+            '/Android/i',
+            '/iPhone/i',
+            '/iPad/i',
+            '/iPod/i',
+            '/BlackBerry/i',
+            '/Windows Phone/i',
+            '/Mobile/i',
+            '/Tablet/i'
+        ];
+
+        foreach ($mobilePatterns as $pattern) {
+            if (preg_match($pattern, $userAgent)) {
+                return 'mobile';
+            }
+        }
+
+        return 'desktop';
+    }
+
+    public function isBusinessOpen(): bool
+    {
+        $businessHours = $this->config->getBusinessHours();
+        
+        if (empty($businessHours)) {
+            return true; // Si no hay horarios configurados, considerar abierto
+        }
+
+        $currentTime = current_time('timestamp');
+        $currentDay = strtolower(date('l', $currentTime));
+        $currentHour = date('H:i', $currentTime);
+
+        if (!isset($businessHours[$currentDay])) {
+            return false;
+        }
+
+        $dayHours = $businessHours[$currentDay];
+        
+        // Si el día está deshabilitado
+        if (!isset($dayHours['enabled']) || !$dayHours['enabled']) {
+            return false;
+        }
+
+        // Si está configurado como cerrado (00:00 - 00:00)
+        if ($dayHours['open'] === '00:00' && $dayHours['close'] === '00:00') {
+            return false;
+        }
+
+        // Verificar si estamos dentro del horario
+        return $currentHour >= $dayHours['open'] && $currentHour <= $dayHours['close'];
+    }
+
+    public function getTemplateMessage(string $templateName, array $variables = []): string
+    {
+        $templates = $this->config->getMessageTemplates();
+        
+        if (!isset($templates[$templateName])) {
+            return $templates['default'] ?? '¡Hola! ¿En qué puedo ayudarte?';
+        }
+
+        $message = $templates[$templateName];
+        
+        // Reemplazar variables
+        foreach ($variables as $key => $value) {
+            $message = str_replace('{' . $key . '}', $value, $message);
+        }
+
+        // Reemplazar variables especiales
+        $message = str_replace('{business_name}', $this->config->getBusinessName(), $message);
+        $message = str_replace('{current_date}', date('d/m/Y'), $message);
+        $message = str_replace('{current_time}', date('H:i'), $message);
+
+        return $message;
+    }
+
+    public function checkRateLimit(string $identifier, int $maxRequests = 10, int $timeWindow = 3600): bool
+    {
+        $rateLimitSettings = $this->config->getRateLimitSettings();
+        
+        if (!isset($rateLimitSettings['enabled']) || !$rateLimitSettings['enabled']) {
+            return true; // Rate limiting deshabilitado
+        }
+
+        $maxRequests = $rateLimitSettings['max_requests_per_hour'] ?? $maxRequests;
+        $timeWindow = $rateLimitSettings['time_window'] ?? $timeWindow;
+
+        $cacheKey = self::CACHE_PREFIX . md5($identifier);
+        $currentRequests = get_transient($cacheKey) ?: 0;
+
+        if ($currentRequests >= $maxRequests) {
+            return false;
+        }
+
+        // Incrementar contador
+        set_transient($cacheKey, $currentRequests + 1, $timeWindow);
+        
+        return true;
+    }
+
+    private function makeApiRequest(string $endpoint, array $data): array
+    {
+        $apiKey = $this->config->getApiKey();
+        $phoneNumberId = $this->config->getPhoneNumberId();
+
+        if (empty($apiKey) || empty($phoneNumberId)) {
+            return $this->createErrorResponse('config_error', 'API Key o Phone Number ID no configurados');
+        }
+
+        $url = self::API_BASE_URL . '/' . $phoneNumberId . '/' . $endpoint;
+        
+        $headers = [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ];
+
+        $response = wp_remote_post($url, [
+            'headers' => $headers,
+            'body' => json_encode($data),
+            'timeout' => 30,
+            'sslverify' => true
+        ]);
+
+        if (is_wp_error($response)) {
+            $this->logError('Error en request HTTP: ' . $response->get_error_message());
+            return $this->createErrorResponse('http_error', 'Error de conexión con WhatsApp API');
+        }
+
+        $statusCode = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+        $responseData = json_decode($body, true);
+
+        if ($statusCode >= 200 && $statusCode < 300) {
+            return [
+                'success' => true,
+                'data' => $responseData,
+                'status_code' => $statusCode
+            ];
+        } else {
+            $errorMessage = $responseData['error']['message'] ?? 'Error desconocido de WhatsApp API';
+            $this->logError("WhatsApp API Error ({$statusCode}): {$errorMessage}");
+            
+            return $this->createErrorResponse('api_error', $errorMessage, [
+                'status_code' => $statusCode,
+                'response' => $responseData
+            ]);
+        }
+    }
+
+    private function generateApiUrl(string $phoneNumber, string $message): string
+    {
+        $apiKey = $this->config->getApiKey();
+        $phoneNumberId = $this->config->getPhoneNumberId();
+        
+        if (empty($apiKey) || empty($phoneNumberId)) {
+            return '';
+        }
+
+        $data = [
             'messaging_product' => 'whatsapp',
-            'to' => $this->formatPhoneNumber($phone_number),
+            'to' => $phoneNumber,
             'type' => 'text',
             'text' => [
                 'body' => $message
             ]
         ];
 
-        // Agregar opciones adicionales
-        if (!empty($options['preview_url'])) {
-            $message_data['text']['preview_url'] = $options['preview_url'];
-        }
-
-        return $this->sendMessage($message_data);
+        return add_query_arg([
+            'action' => 'wp_whatsapp_send',
+            'data' => base64_encode(json_encode($data)),
+            'nonce' => wp_create_nonce('wp_whatsapp_send')
+        ], admin_url('admin-ajax.php'));
     }
 
-    /**
-     * Enviar mensaje con imagen
-     *
-     * @param string $phone_number Número de teléfono del destinatario
-     * @param string $image_url URL de la imagen
-     * @param string $caption Captión de la imagen (opcional)
-     * @param array $options Opciones adicionales
-     * @return array
-     */
-    public function sendImageMessage(string $phone_number, string $image_url, string $caption = '', array $options = []): array {
-        // Validar número de teléfono
-        if (!$this->validation_service->isValidPhoneNumber($phone_number)) {
-            return [
-                'success' => false,
-                'error' => 'Número de teléfono inválido',
-                'code' => 'INVALID_PHONE'
-            ];
-        }
-
-        // Validar URL de imagen
-        if (!$this->validation_service->isValidUrl($image_url)) {
-            return [
-                'success' => false,
-                'error' => 'URL de imagen inválida',
-                'code' => 'INVALID_IMAGE_URL'
-            ];
-        }
-
-        // Preparar datos del mensaje
-        $message_data = [
-            'messaging_product' => 'whatsapp',
-            'to' => $this->formatPhoneNumber($phone_number),
-            'type' => 'image',
-            'image' => [
-                'link' => $image_url
-            ]
-        ];
-
-        // Agregar captión si existe
-        if (!empty($caption)) {
-            $message_data['image']['caption'] = $caption;
-        }
-
-        return $this->sendMessage($message_data);
-    }
-
-    /**
-     * Enviar mensaje con documento
-     *
-     * @param string $phone_number Número de teléfono del destinatario
-     * @param string $document_url URL del documento
-     * @param string $filename Nombre del archivo
-     * @param string $caption Captión del documento (opcional)
-     * @return array
-     */
-    public function sendDocumentMessage(string $phone_number, string $document_url, string $filename, string $caption = ''): array {
-        // Validar número de teléfono
-        if (!$this->validation_service->isValidPhoneNumber($phone_number)) {
-            return [
-                'success' => false,
-                'error' => 'Número de teléfono inválido',
-                'code' => 'INVALID_PHONE'
-            ];
-        }
-
-        // Validar URL del documento
-        if (!$this->validation_service->isValidUrl($document_url)) {
-            return [
-                'success' => false,
-                'error' => 'URL del documento inválida',
-                'code' => 'INVALID_DOCUMENT_URL'
-            ];
-        }
-
-        // Preparar datos del mensaje
-        $message_data = [
-            'messaging_product' => 'whatsapp',
-            'to' => $this->formatPhoneNumber($phone_number),
-            'type' => 'document',
-            'document' => [
-                'link' => $document_url,
-                'filename' => $filename
-            ]
-        ];
-
-        // Agregar captión si existe
-        if (!empty($caption)) {
-            $message_data['document']['caption'] = $caption;
-        }
-
-        return $this->sendMessage($message_data);
-    }
-
-    /**
-     * Enviar mensaje con botones
-     *
-     * @param string $phone_number Número de teléfono del destinatario
-     * @param string $header_text Texto del encabezado
-     * @param string $body_text Texto del cuerpo
-     * @param array $buttons Array de botones
-     * @return array
-     */
-    public function sendButtonMessage(string $phone_number, string $header_text, string $body_text, array $buttons): array {
-        // Validar número de teléfono
-        if (!$this->validation_service->isValidPhoneNumber($phone_number)) {
-            return [
-                'success' => false,
-                'error' => 'Número de teléfono inválido',
-                'code' => 'INVALID_PHONE'
-            ];
-        }
-
-        // Validar botones
-        if (empty($buttons) || count($buttons) > 3) {
-            return [
-                'success' => false,
-                'error' => 'Debe tener entre 1 y 3 botones',
-                'code' => 'INVALID_BUTTONS'
-            ];
-        }
-
-        // Preparar datos del mensaje
-        $message_data = [
-            'messaging_product' => 'whatsapp',
-            'to' => $this->formatPhoneNumber($phone_number),
-            'type' => 'interactive',
-            'interactive' => [
-                'type' => 'button',
-                'header' => [
-                    'type' => 'text',
-                    'text' => $header_text
-                ],
-                'body' => [
-                    'text' => $body_text
-                ],
-                'action' => [
-                    'buttons' => $buttons
-                ]
-            ]
-        ];
-
-        return $this->sendMessage($message_data);
-    }
-
-    /**
-     * Enviar mensaje con lista
-     *
-     * @param string $phone_number Número de teléfono del destinatario
-     * @param string $header_text Texto del encabezado
-     * @param string $body_text Texto del cuerpo
-     * @param string $button_text Texto del botón
-     * @param array $sections Array de secciones
-     * @return array
-     */
-    public function sendListMessage(string $phone_number, string $header_text, string $body_text, string $button_text, array $sections): array {
-        // Validar número de teléfono
-        if (!$this->validation_service->isValidPhoneNumber($phone_number)) {
-            return [
-                'success' => false,
-                'error' => 'Número de teléfono inválido',
-                'code' => 'INVALID_PHONE'
-            ];
-        }
-
-        // Preparar datos del mensaje
-        $message_data = [
-            'messaging_product' => 'whatsapp',
-            'to' => $this->formatPhoneNumber($phone_number),
-            'type' => 'interactive',
-            'interactive' => [
-                'type' => 'list',
-                'header' => [
-                    'type' => 'text',
-                    'text' => $header_text
-                ],
-                'body' => [
-                    'text' => $body_text
-                ],
-                'action' => [
-                    'button' => $button_text,
-                    'sections' => $sections
-                ]
-            ]
-        ];
-
-        return $this->sendMessage($message_data);
-    }
-
-    /**
-     * Enviar mensaje a través de la API
-     *
-     * @param array $message_data Datos del mensaje
-     * @return array
-     */
-    private function sendMessage(array $message_data): array {
-        $settings = $this->config_service->getSettings();
-        $api_key = $settings['api_key'] ?? '';
-        $phone_number_id = $settings['phone_number_id'] ?? '';
-
-        if (empty($api_key)) {
-            return [
-                'success' => false,
-                'error' => 'API Key no configurada',
-                'code' => 'NO_API_KEY'
-            ];
-        }
-
-        if (empty($phone_number_id)) {
-            return [
-                'success' => false,
-                'error' => 'Phone Number ID no configurado',
-                'code' => 'NO_PHONE_NUMBER_ID'
-            ];
-        }
-
-        // URL de la API
-        $url = self::API_BASE_URL . '/' . $phone_number_id . '/messages';
-
-        // Headers de la petición
-        $headers = [
-            'Authorization: Bearer ' . $api_key,
-            'Content-Type: application/json'
-        ];
-
-        // Realizar petición
-        $response = wp_remote_post($url, [
-            'headers' => $headers,
-            'body' => json_encode($message_data),
-            'timeout' => 30,
-            'sslverify' => true
-        ]);
-
-        // Verificar si hay error en la petición
-        if (is_wp_error($response)) {
-            $this->logError('Error en petición HTTP: ' . $response->get_error_message());
-            return [
-                'success' => false,
-                'error' => 'Error de conexión: ' . $response->get_error_message(),
-                'code' => 'HTTP_ERROR'
-            ];
-        }
-
-        // Obtener respuesta
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-        $response_data = json_decode($response_body, true);
-
-        // Verificar código de respuesta
-        if ($response_code !== 200) {
-            $error_message = $response_data['error']['message'] ?? 'Error desconocido';
-            $error_code = $response_data['error']['code'] ?? 'UNKNOWN_ERROR';
-            
-            $this->logError("Error de API: {$error_message} (Código: {$error_code})");
-            
-            return [
-                'success' => false,
-                'error' => $error_message,
-                'code' => $error_code,
-                'response_code' => $response_code
-            ];
-        }
-
-        // Mensaje enviado correctamente
-        $this->logMessage('Mensaje enviado correctamente', $message_data);
-        
+    private function createErrorResponse(string $type, string $message, array $details = []): array
+    {
         return [
-            'success' => true,
-            'message_id' => $response_data['messages'][0]['id'] ?? '',
-            'response' => $response_data
-        ];
-    }
-
-    /**
-     * Construir URL de WhatsApp para el widget
-     *
-     * @param string $phone_number Número de teléfono
-     * @param string $message Mensaje predefinido
-     * @return string
-     */
-    public function buildWhatsAppUrl(string $phone_number, string $message = ''): string {
-        // Formatear número de teléfono
-        $formatted_number = $this->formatPhoneNumber($phone_number);
-        
-        // Construir URL base
-        $url = "https://wa.me/{$formatted_number}";
-        
-        // Agregar mensaje si existe
-        if (!empty($message)) {
-            $url .= '?text=' . urlencode($message);
-        }
-        
-        return $url;
-    }
-
-    /**
-     * Formatear número de teléfono
-     *
-     * @param string $phone_number Número de teléfono
-     * @return string
-     */
-    private function formatPhoneNumber(string $phone_number): string {
-        // Remover todos los caracteres no numéricos excepto el +
-        $formatted = preg_replace('/[^0-9+]/', '', $phone_number);
-        
-        // Asegurar que tenga el código de país
-        if (!str_starts_with($formatted, '+')) {
-            $formatted = '+' . $formatted;
-        }
-        
-        return $formatted;
-    }
-
-    /**
-     * Obtener información del número de teléfono
-     *
-     * @param string $phone_number_id ID del número de teléfono
-     * @return array
-     */
-    public function getPhoneNumberInfo(string $phone_number_id): array {
-        $settings = $this->config_service->getSettings();
-        $api_key = $settings['api_key'] ?? '';
-
-        if (empty($api_key)) {
-            return [
-                'success' => false,
-                'error' => 'API Key no configurada',
-                'code' => 'NO_API_KEY'
-            ];
-        }
-
-        // URL de la API
-        $url = self::API_BASE_URL . '/' . $phone_number_id;
-
-        // Headers de la petición
-        $headers = [
-            'Authorization: Bearer ' . $api_key,
-            'Content-Type: application/json'
-        ];
-
-        // Realizar petición
-        $response = wp_remote_get($url, [
-            'headers' => $headers,
-            'timeout' => 30,
-            'sslverify' => true
-        ]);
-
-        // Verificar si hay error en la petición
-        if (is_wp_error($response)) {
-            return [
-                'success' => false,
-                'error' => 'Error de conexión: ' . $response->get_error_message(),
-                'code' => 'HTTP_ERROR'
-            ];
-        }
-
-        // Obtener respuesta
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-        $response_data = json_decode($response_body, true);
-
-        // Verificar código de respuesta
-        if ($response_code !== 200) {
-            $error_message = $response_data['error']['message'] ?? 'Error desconocido';
-            $error_code = $response_data['error']['code'] ?? 'UNKNOWN_ERROR';
-            
-            return [
-                'success' => false,
-                'error' => $error_message,
-                'code' => $error_code,
-                'response_code' => $response_code
-            ];
-        }
-
-        return [
-            'success' => true,
-            'data' => $response_data
-        ];
-    }
-
-    /**
-     * Verificar estado de la API
-     *
-     * @return array
-     */
-    public function checkApiStatus(): array {
-        $settings = $this->config_service->getSettings();
-        $api_key = $settings['api_key'] ?? '';
-
-        if (empty($api_key)) {
-            return [
-                'success' => false,
-                'error' => 'API Key no configurada',
-                'code' => 'NO_API_KEY'
-            ];
-        }
-
-        // URL de la API para verificar estado
-        $url = self::API_BASE_URL . '/me';
-
-        // Headers de la petición
-        $headers = [
-            'Authorization: Bearer ' . $api_key,
-            'Content-Type: application/json'
-        ];
-
-        // Realizar petición
-        $response = wp_remote_get($url, [
-            'headers' => $headers,
-            'timeout' => 30,
-            'sslverify' => true
-        ]);
-
-        // Verificar si hay error en la petición
-        if (is_wp_error($response)) {
-            return [
-                'success' => false,
-                'error' => 'Error de conexión: ' . $response->get_error_message(),
-                'code' => 'HTTP_ERROR'
-            ];
-        }
-
-        // Obtener respuesta
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-        $response_data = json_decode($response_body, true);
-
-        // Verificar código de respuesta
-        if ($response_code !== 200) {
-            $error_message = $response_data['error']['message'] ?? 'Error desconocido';
-            $error_code = $response_data['error']['code'] ?? 'UNKNOWN_ERROR';
-            
-            return [
-                'success' => false,
-                'error' => $error_message,
-                'code' => $error_code,
-                'response_code' => $response_code
-            ];
-        }
-
-        return [
-            'success' => true,
-            'data' => $response_data
-        ];
-    }
-
-    /**
-     * Registrar mensaje en el log
-     *
-     * @param string $message Mensaje a registrar
-     * @param array $data Datos adicionales
-     * @return void
-     */
-    private function logMessage(string $message, array $data = []): void {
-        if (!$this->config_service->isLoggingEnabled()) {
-            return;
-        }
-
-        $log_entry = [
-            'timestamp' => current_time('mysql'),
-            'message' => $message,
-            'data' => $data
-        ];
-
-        // Guardar en la base de datos
-        global $wpdb;
-        $wpdb->insert(
-            $wpdb->prefix . 'whatsapp_messages',
-            [
-                'phone_number' => $data['to'] ?? '',
+            'success' => false,
+            'error' => [
+                'type' => $type,
                 'message' => $message,
-                'message_type' => 'log',
-                'status' => 'success'
+                'details' => $details,
+                'timestamp' => current_time('mysql')
             ]
-        );
-    }
-
-    /**
-     * Registrar error en el log
-     *
-     * @param string $error Mensaje de error
-     * @param array $data Datos adicionales
-     * @return void
-     */
-    private function logError(string $error, array $data = []): void {
-        if (!$this->config_service->isLoggingEnabled()) {
-            return;
-        }
-
-        $log_entry = [
-            'timestamp' => current_time('mysql'),
-            'error' => $error,
-            'data' => $data
         ];
-
-        // Guardar en la base de datos
-        global $wpdb;
-        $wpdb->insert(
-            $wpdb->prefix . 'whatsapp_messages',
-            [
-                'phone_number' => $data['to'] ?? '',
-                'message' => $error,
-                'message_type' => 'error',
-                'status' => 'failed'
-            ]
-        );
     }
 
-    /**
-     * Obtener el servicio de configuración
-     *
-     * @return ConfigService
-     */
-    public function getConfigService(): ConfigService {
-        return $this->config_service;
-    }
-
-    /**
-     * Obtener el servicio de validación
-     *
-     * @return ValidationService
-     */
-    public function getValidationService(): ValidationService {
-        return $this->validation_service;
+    private function logError(string $message): void
+    {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('[WP WhatsApp Business] ' . $message);
+        }
+        
+        do_action('wp_whatsapp_business_error_logged', $message);
     }
 } 

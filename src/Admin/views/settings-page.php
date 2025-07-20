@@ -1,550 +1,378 @@
 <?php
 /**
- * Vista de la página de configuración
+ * Página de configuración profesional con pestañas
  *
- * @package WPWhatsAppBusiness\Admin\Views
+ * @package WPWhatsAppBusiness\Admin\views
  * @since 1.0.0
  */
 
-// Prevenir acceso directo
+// Verificar acceso directo
 if (!defined('ABSPATH')) {
     exit;
 }
 
-// Obtener configuración actual
-$settings = $this->config_service->getSettings();
+$configService = \WPWhatsAppBusiness\Services\ServiceFactory::createConfigService();
+$config = $configService->getConfig();
+$current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
 ?>
 
-<div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    
-    <?php if (isset($_GET['updated']) && $_GET['updated'] === 'true'): ?>
-        <div class="notice notice-success is-dismissible">
-            <p><?php _e('Configuración guardada correctamente.', 'wp-whatsapp-business'); ?></p>
+<div class="wrap wp-whatsapp-admin">
+    <div class="wp-whatsapp-header">
+        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <p class="description">
+            <?php _e('Configuración completa del plugin de WhatsApp Business. Personaliza todos los aspectos de la integración.', 'wp-whatsapp-business'); ?>
+        </p>
+    </div>
+
+    <div class="wp-whatsapp-tabs">
+        <!-- Navegación de pestañas -->
+        <div class="nav-tab-wrapper">
+            <a href="?page=wp-whatsapp-business-settings&tab=general" 
+               class="nav-tab <?php echo $current_tab === 'general' ? 'nav-tab-active' : ''; ?>"
+               data-tab="general">
+                <?php _e('Configuración General', 'wp-whatsapp-business'); ?>
+            </a>
+            <a href="?page=wp-whatsapp-business-settings&tab=widget" 
+               class="nav-tab <?php echo $current_tab === 'widget' ? 'nav-tab-active' : ''; ?>"
+               data-tab="widget">
+                <?php _e('Personalización del Widget', 'wp-whatsapp-business'); ?>
+            </a>
+            <a href="?page=wp-whatsapp-business-settings&tab=hours" 
+               class="nav-tab <?php echo $current_tab === 'hours' ? 'nav-tab-active' : ''; ?>"
+               data-tab="hours">
+                <?php _e('Horarios de Negocio', 'wp-whatsapp-business'); ?>
+            </a>
+            <a href="?page=wp-whatsapp-business-settings&tab=messages" 
+               class="nav-tab <?php echo $current_tab === 'messages' ? 'nav-tab-active' : ''; ?>"
+               data-tab="messages">
+                <?php _e('Plantillas de Mensajes', 'wp-whatsapp-business'); ?>
+            </a>
+            <a href="?page=wp-whatsapp-business-settings&tab=advanced" 
+               class="nav-tab <?php echo $current_tab === 'advanced' ? 'nav-tab-active' : ''; ?>"
+               data-tab="advanced">
+                <?php _e('Configuración Avanzada', 'wp-whatsapp-business'); ?>
+            </a>
         </div>
-    <?php endif; ?>
 
-    <?php if (isset($_GET['error'])): ?>
-        <div class="notice notice-error is-dismissible">
-            <p>
-                <?php 
-                switch ($_GET['error']) {
-                    case 'validation':
-                        _e('Error de validación. Por favor revisa los campos marcados.', 'wp-whatsapp-business');
-                        break;
-                    case 'upload':
-                        _e('Error al subir archivo. Por favor intenta de nuevo.', 'wp-whatsapp-business');
-                        break;
-                    case 'invalid_json':
-                        _e('Archivo JSON inválido. Por favor verifica el formato.', 'wp-whatsapp-business');
-                        break;
-                    case 'import':
-                        _e('Error al importar configuración. Por favor verifica el archivo.', 'wp-whatsapp-business');
-                        break;
-                    default:
-                        _e('Ha ocurrido un error. Por favor intenta de nuevo.', 'wp-whatsapp-business');
-                }
-                ?>
-            </p>
-        </div>
-    <?php endif; ?>
-
-    <div class="wp-whatsapp-business-admin-container">
-        <!-- Tabs de navegación -->
-        <nav class="nav-tab-wrapper">
-            <a href="#general" class="nav-tab nav-tab-active" data-tab="general">
-                <?php _e('General', 'wp-whatsapp-business'); ?>
-            </a>
-            <a href="#appearance" class="nav-tab" data-tab="appearance">
-                <?php _e('Apariencia', 'wp-whatsapp-business'); ?>
-            </a>
-            <a href="#notifications" class="nav-tab" data-tab="notifications">
-                <?php _e('Notificaciones', 'wp-whatsapp-business'); ?>
-            </a>
-            <a href="#advanced" class="nav-tab" data-tab="advanced">
-                <?php _e('Avanzado', 'wp-whatsapp-business'); ?>
-            </a>
-            <a href="#tools" class="nav-tab" data-tab="tools">
-                <?php _e('Herramientas', 'wp-whatsapp-business'); ?>
-            </a>
-        </nav>
-
-        <!-- Tab General -->
-        <div id="general" class="tab-content active">
-            <form method="post" action="options.php">
+        <!-- Contenido de las pestañas -->
+        <div class="tab-content active" id="general-tab">
+            <form method="post" action="options.php" class="wp-whatsapp-form">
                 <?php
-                settings_fields('wp_whatsapp_business_general');
-                do_settings_sections('wp_whatsapp_business_general');
+                settings_fields('wp_whatsapp_business_settings');
+                do_settings_sections('wp_whatsapp_business_settings');
                 ?>
                 
-                <div class="form-section">
-                    <h3><?php _e('Configuración de API', 'wp-whatsapp-business'); ?></h3>
-                    <p class="description">
-                        <?php _e('Configura tu integración con WhatsApp Business API.', 'wp-whatsapp-business'); ?>
-                    </p>
-                    
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <label for="api_key"><?php _e('API Key', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" 
-                                       id="api_key" 
-                                       name="wp_whatsapp_business_settings[api_key]" 
-                                       value="<?php echo esc_attr($settings['api_key'] ?? ''); ?>" 
-                                       class="regular-text" />
-                                <p class="description">
-                                    <?php _e('Ingresa tu API Key de WhatsApp Business. Puedes obtenerla desde el Facebook Developer Console.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                        
-                        <tr>
-                            <th scope="row">
-                                <label for="phone_number_id"><?php _e('Phone Number ID', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" 
-                                       id="phone_number_id" 
-                                       name="wp_whatsapp_business_settings[phone_number_id]" 
-                                       value="<?php echo esc_attr($settings['phone_number_id'] ?? ''); ?>" 
-                                       class="regular-text" />
-                                <p class="description">
-                                    <?php _e('Ingresa el Phone Number ID de tu número de WhatsApp Business.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                        
-                        <tr>
-                            <th scope="row">
-                                <label for="phone_number"><?php _e('Número de Teléfono', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" 
-                                       id="phone_number" 
-                                       name="wp_whatsapp_business_settings[phone_number]" 
-                                       value="<?php echo esc_attr($settings['phone_number'] ?? ''); ?>" 
-                                       class="regular-text" 
-                                       placeholder="+1234567890" />
-                                <p class="description">
-                                    <?php _e('Ingresa tu número de teléfono en formato internacional (+1234567890).', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                        
-                        <tr>
-                            <th scope="row">
-                                <label for="business_name"><?php _e('Nombre del Negocio', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" 
-                                       id="business_name" 
-                                       name="wp_whatsapp_business_settings[business_name]" 
-                                       value="<?php echo esc_attr($settings['business_name'] ?? ''); ?>" 
-                                       class="regular-text" />
-                                <p class="description">
-                                    <?php _e('Ingresa el nombre de tu negocio que aparecerá en el widget.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                        
-                        <tr>
-                            <th scope="row">
-                                <?php _e('Habilitar Plugin', 'wp-whatsapp-business'); ?>
-                            </th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" 
-                                           name="wp_whatsapp_business_settings[enabled]" 
-                                           value="1" 
-                                           <?php checked($settings['enabled'] ?? false, true); ?> />
-                                    <?php _e('Habilitar el plugin', 'wp-whatsapp-business'); ?>
-                                </label>
-                            </td>
-                        </tr>
-                    </table>
+                <div class="wp-whatsapp-form-actions">
+                    <?php submit_button(__('Guardar Configuración General', 'wp-whatsapp-business'), 'primary', 'submit', false); ?>
+                    <button type="button" class="button wp-whatsapp-test-phone">
+                        <?php _e('Probar Conexión', 'wp-whatsapp-business'); ?>
+                    </button>
                 </div>
+            </form>
+        </div>
 
-                <div class="form-section">
-                    <h3><?php _e('Horarios de Negocio', 'wp-whatsapp-business'); ?></h3>
-                    <p class="description">
-                        <?php _e('Configura los horarios de tu negocio para que el widget solo aparezca cuando estés disponible.', 'wp-whatsapp-business'); ?>
-                    </p>
-                    
-                    <div class="business-hours-container">
-                        <?php
-                        $business_hours = $settings['business_hours'] ?? [];
-                        $days = [
-                            'monday' => __('Lunes', 'wp-whatsapp-business'),
-                            'tuesday' => __('Martes', 'wp-whatsapp-business'),
-                            'wednesday' => __('Miércoles', 'wp-whatsapp-business'),
-                            'thursday' => __('Jueves', 'wp-whatsapp-business'),
-                            'friday' => __('Viernes', 'wp-whatsapp-business'),
-                            'saturday' => __('Sábado', 'wp-whatsapp-business'),
-                            'sunday' => __('Domingo', 'wp-whatsapp-business')
-                        ];
-
-                        foreach ($days as $day_key => $day_name):
-                            $hours = $business_hours[$day_key] ?? ['09:00', '18:00'];
-                            $is_closed = ($hours === 'closed');
-                        ?>
-                            <div class="business-hour-row">
-                                <label class="day-label"><?php echo esc_html($day_name); ?>:</label>
-                                
-                                <?php if ($is_closed): ?>
-                                    <input type="checkbox" 
-                                           name="wp_whatsapp_business_settings[business_hours][<?php echo $day_key; ?>]" 
-                                           value="closed" 
-                                           checked /> 
-                                    <span><?php _e('Cerrado', 'wp-whatsapp-business'); ?></span>
-                                <?php else: ?>
-                                    <input type="time" 
-                                           name="wp_whatsapp_business_settings[business_hours][<?php echo $day_key; ?>][]" 
-                                           value="<?php echo esc_attr($hours[0]); ?>" /> - 
-                                    <input type="time" 
-                                           name="wp_whatsapp_business_settings[business_hours][<?php echo $day_key; ?>][]" 
-                                           value="<?php echo esc_attr($hours[1]); ?>" /> 
-                                    <input type="checkbox" 
-                                           name="wp_whatsapp_business_settings[business_hours][<?php echo $day_key; ?>]" 
-                                           value="closed" /> 
-                                    <span><?php _e('Cerrado', 'wp-whatsapp-business'); ?></span>
-                                <?php endif; ?>
-                            </div>
-                        <?php endforeach; ?>
+        <div class="tab-content" id="widget-tab">
+            <form method="post" action="options.php" class="wp-whatsapp-form">
+                <?php
+                settings_fields('wp_whatsapp_business_widget');
+                do_settings_sections('wp_whatsapp_business_widget');
+                ?>
+                
+                <!-- Preview del widget -->
+                <div class="widget-preview-container">
+                    <h3><?php _e('Vista Previa del Widget', 'wp-whatsapp-business'); ?></h3>
+                    <div id="widget-preview">
+                        <p><?php _e('Configura las opciones del widget para ver la vista previa en tiempo real.', 'wp-whatsapp-business'); ?></p>
                     </div>
                 </div>
-
-                <?php submit_button(); ?>
+                
+                <div class="wp-whatsapp-form-actions">
+                    <?php submit_button(__('Guardar Configuración del Widget', 'wp-whatsapp-business'), 'primary', 'submit', false); ?>
+                    <button type="button" class="button wp-whatsapp-reset-widget">
+                        <?php _e('Restablecer Valores', 'wp-whatsapp-business'); ?>
+                    </button>
+                </div>
             </form>
         </div>
 
-        <!-- Tab Apariencia -->
-        <div id="appearance" class="tab-content">
-            <form method="post" action="options.php">
+        <div class="tab-content" id="hours-tab">
+            <form method="post" action="options.php" class="wp-whatsapp-form">
                 <?php
-                settings_fields('wp_whatsapp_business_appearance');
-                do_settings_sections('wp_whatsapp_business_appearance');
+                settings_fields('wp_whatsapp_business_hours');
+                do_settings_sections('wp_whatsapp_business_hours');
                 ?>
                 
-                <div class="form-section">
-                    <h3><?php _e('Configuración del Widget', 'wp-whatsapp-business'); ?></h3>
-                    
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <label for="widget_position"><?php _e('Posición', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <select id="widget_position" name="wp_whatsapp_business_settings[widget_position]">
-                                    <option value="bottom-right" <?php selected($settings['widget_position'] ?? 'bottom-right', 'bottom-right'); ?>>
-                                        <?php _e('Inferior Derecha', 'wp-whatsapp-business'); ?>
-                                    </option>
-                                    <option value="bottom-left" <?php selected($settings['widget_position'] ?? 'bottom-right', 'bottom-left'); ?>>
-                                        <?php _e('Inferior Izquierda', 'wp-whatsapp-business'); ?>
-                                    </option>
-                                    <option value="top-right" <?php selected($settings['widget_position'] ?? 'bottom-right', 'top-right'); ?>>
-                                        <?php _e('Superior Derecha', 'wp-whatsapp-business'); ?>
-                                    </option>
-                                    <option value="top-left" <?php selected($settings['widget_position'] ?? 'bottom-right', 'top-left'); ?>>
-                                        <?php _e('Superior Izquierda', 'wp-whatsapp-business'); ?>
-                                    </option>
-                                </select>
-                            </td>
-                        </tr>
-                        
-                        <tr>
-                            <th scope="row">
-                                <label for="widget_color"><?php _e('Color del Widget', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <input type="color" 
-                                       id="widget_color" 
-                                       name="wp_whatsapp_business_settings[appearance][widget_color]" 
-                                       value="<?php echo esc_attr($settings['appearance']['widget_color'] ?? '#25D366'); ?>" />
-                                <p class="description">
-                                    <?php _e('Selecciona el color principal del widget.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                        
-                        <tr>
-                            <th scope="row">
-                                <label for="widget_text"><?php _e('Texto del Widget', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" 
-                                       id="widget_text" 
-                                       name="wp_whatsapp_business_settings[widget_text]" 
-                                       value="<?php echo esc_attr($settings['widget_text'] ?? ''); ?>" 
-                                       class="regular-text" />
-                                <p class="description">
-                                    <?php _e('Texto que aparecerá en el widget.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
+                <div class="wp-whatsapp-form-actions">
+                    <?php submit_button(__('Guardar Horarios', 'wp-whatsapp-business'), 'primary', 'submit', false); ?>
+                    <button type="button" class="button wp-whatsapp-copy-hours">
+                        <?php _e('Copiar Horarios', 'wp-whatsapp-business'); ?>
+                    </button>
                 </div>
-
-                <?php submit_button(); ?>
             </form>
         </div>
 
-        <!-- Tab Notificaciones -->
-        <div id="notifications" class="tab-content">
-            <form method="post" action="options.php">
+        <div class="tab-content" id="messages-tab">
+            <form method="post" action="options.php" class="wp-whatsapp-form">
                 <?php
-                settings_fields('wp_whatsapp_business_notifications');
-                do_settings_sections('wp_whatsapp_business_notifications');
+                settings_fields('wp_whatsapp_business_messages');
+                do_settings_sections('wp_whatsapp_business_messages');
                 ?>
                 
-                <div class="form-section">
-                    <h3><?php _e('Configuración de Notificaciones', 'wp-whatsapp-business'); ?></h3>
-                    
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <?php _e('Notificaciones por Email', 'wp-whatsapp-business'); ?>
-                            </th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" 
-                                           name="wp_whatsapp_business_settings[notification_settings][email_notifications]" 
-                                           value="1" 
-                                           <?php checked($settings['notification_settings']['email_notifications'] ?? false, true); ?> />
-                                    <?php _e('Habilitar notificaciones por email', 'wp-whatsapp-business'); ?>
-                                </label>
-                            </td>
-                        </tr>
-                        
-                        <tr>
-                            <th scope="row">
-                                <label for="admin_email"><?php _e('Email del Administrador', 'wp-whatsapp-business'); ?></label>
-                            </th>
-                            <td>
-                                <input type="email" 
-                                       id="admin_email" 
-                                       name="wp_whatsapp_business_settings[notification_settings][admin_email]" 
-                                       value="<?php echo esc_attr($settings['notification_settings']['admin_email'] ?? ''); ?>" 
-                                       class="regular-text" />
-                                <p class="description">
-                                    <?php _e('Email donde recibirás las notificaciones.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
+                <div class="wp-whatsapp-form-actions">
+                    <?php submit_button(__('Guardar Plantillas', 'wp-whatsapp-business'), 'primary', 'submit', false); ?>
+                    <button type="button" class="button wp-whatsapp-test-message">
+                        <?php _e('Probar Mensaje', 'wp-whatsapp-business'); ?>
+                    </button>
                 </div>
-
-                <?php submit_button(); ?>
             </form>
         </div>
 
-        <!-- Tab Avanzado -->
-        <div id="advanced" class="tab-content">
-            <form method="post" action="options.php">
+        <div class="tab-content" id="advanced-tab">
+            <form method="post" action="options.php" class="wp-whatsapp-form">
                 <?php
                 settings_fields('wp_whatsapp_business_advanced');
                 do_settings_sections('wp_whatsapp_business_advanced');
                 ?>
                 
-                <div class="form-section">
-                    <h3><?php _e('Configuración Avanzada', 'wp-whatsapp-business'); ?></h3>
+                <!-- Import/Export -->
+                <div class="import-export-container">
+                    <h3><?php _e('Importar/Exportar Configuración', 'wp-whatsapp-business'); ?></h3>
+                    <p><?php _e('Guarda una copia de tu configuración o restaura desde un archivo de respaldo.', 'wp-whatsapp-business'); ?></p>
                     
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <?php _e('Modo Debug', 'wp-whatsapp-business'); ?>
-                            </th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" 
-                                           name="wp_whatsapp_business_settings[advanced][debug_mode]" 
-                                           value="1" 
-                                           <?php checked($settings['advanced']['debug_mode'] ?? false, true); ?> />
-                                    <?php _e('Habilitar modo debug', 'wp-whatsapp-business'); ?>
-                                </label>
-                                <p class="description">
-                                    <?php _e('Activa el modo debug para obtener información detallada de errores.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
+                    <div class="import-export-actions">
+                        <button type="button" class="button wp-whatsapp-export">
+                            <span class="dashicons dashicons-download"></span>
+                            <?php _e('Exportar Configuración', 'wp-whatsapp-business'); ?>
+                        </button>
                         
-                        <tr>
-                            <th scope="row">
-                                <?php _e('Registrar Mensajes', 'wp-whatsapp-business'); ?>
-                            </th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" 
-                                           name="wp_whatsapp_business_settings[advanced][log_messages]" 
-                                           value="1" 
-                                           <?php checked($settings['advanced']['log_messages'] ?? true, true); ?> />
-                                    <?php _e('Registrar mensajes en la base de datos', 'wp-whatsapp-business'); ?>
-                                </label>
-                                <p class="description">
-                                    <?php _e('Guarda un registro de todos los mensajes enviados.', 'wp-whatsapp-business'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
+                        <label for="wp-whatsapp-import" class="button">
+                            <span class="dashicons dashicons-upload"></span>
+                            <?php _e('Importar Configuración', 'wp-whatsapp-business'); ?>
+                        </label>
+                        <input type="file" id="wp-whatsapp-import" class="wp-whatsapp-import" accept=".json" style="display: none;">
+                    </div>
                 </div>
-
-                <?php submit_button(); ?>
+                
+                <div class="wp-whatsapp-form-actions">
+                    <?php submit_button(__('Guardar Configuración Avanzada', 'wp-whatsapp-business'), 'primary', 'submit', false); ?>
+                    <button type="button" class="button wp-whatsapp-clear-cache">
+                        <?php _e('Limpiar Caché', 'wp-whatsapp-business'); ?>
+                    </button>
+                </div>
             </form>
         </div>
+    </div>
+</div>
 
-        <!-- Tab Herramientas -->
-        <div id="tools" class="tab-content">
-            <div class="form-section">
-                <h3><?php _e('Herramientas', 'wp-whatsapp-business'); ?></h3>
-                
-                <div class="tools-container">
-                    <div class="tool-card">
-                        <h4><?php _e('Exportar Configuración', 'wp-whatsapp-business'); ?></h4>
-                        <p><?php _e('Descarga una copia de tu configuración actual.', 'wp-whatsapp-business'); ?></p>
-                        <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
-                            <input type="hidden" name="action" value="export_whatsapp_settings" />
-                            <?php wp_nonce_field('export_whatsapp_settings', 'export_nonce'); ?>
-                            <?php submit_button(__('Exportar', 'wp-whatsapp-business'), 'secondary', 'export_settings'); ?>
-                        </form>
-                    </div>
-                    
-                    <div class="tool-card">
-                        <h4><?php _e('Importar Configuración', 'wp-whatsapp-business'); ?></h4>
-                        <p><?php _e('Importa configuración desde un archivo JSON.', 'wp-whatsapp-business'); ?></p>
-                        <form method="post" action="<?php echo admin_url('admin-post.php'); ?>" enctype="multipart/form-data">
-                            <input type="hidden" name="action" value="import_whatsapp_settings" />
-                            <?php wp_nonce_field('import_whatsapp_settings', 'import_nonce'); ?>
-                            <input type="file" name="settings_file" accept=".json" required />
-                            <?php submit_button(__('Importar', 'wp-whatsapp-business'), 'secondary', 'import_settings'); ?>
-                        </form>
-                    </div>
-                    
-                    <div class="tool-card">
-                        <h4><?php _e('Restablecer Configuración', 'wp-whatsapp-business'); ?></h4>
-                        <p><?php _e('Restablece toda la configuración a los valores por defecto.', 'wp-whatsapp-business'); ?></p>
-                        <button type="button" class="button button-secondary" id="reset-settings">
-                            <?php _e('Restablecer', 'wp-whatsapp-business'); ?>
-                        </button>
-                    </div>
-                </div>
+<!-- Modal para testing de teléfono -->
+<div id="wp-whatsapp-test-modal" class="wp-whatsapp-modal" style="display: none;">
+    <div class="wp-whatsapp-modal-content">
+        <div class="wp-whatsapp-modal-header">
+            <h3><?php _e('Probar Conexión de WhatsApp', 'wp-whatsapp-business'); ?></h3>
+            <button type="button" class="wp-whatsapp-modal-close">&times;</button>
+        </div>
+        <div class="wp-whatsapp-modal-body">
+            <p><?php _e('Ingresa un número de teléfono para probar la conexión con WhatsApp Business API:', 'wp-whatsapp-business'); ?></p>
+            <input type="text" class="wp-whatsapp-phone-input" placeholder="+1234567890" pattern="^\+[1-9]\d{1,14}$">
+            <div class="wp-whatsapp-modal-actions">
+                <button type="button" class="button button-primary wp-whatsapp-test-phone-confirm">
+                    <?php _e('Probar Conexión', 'wp-whatsapp-business'); ?>
+                </button>
+                <button type="button" class="button wp-whatsapp-modal-cancel">
+                    <?php _e('Cancelar', 'wp-whatsapp-business'); ?>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para testing de mensaje -->
+<div id="wp-whatsapp-message-modal" class="wp-whatsapp-modal" style="display: none;">
+    <div class="wp-whatsapp-modal-content">
+        <div class="wp-whatsapp-modal-header">
+            <h3><?php _e('Probar Mensaje', 'wp-whatsapp-business'); ?></h3>
+            <button type="button" class="wp-whatsapp-modal-close">&times;</button>
+        </div>
+        <div class="wp-whatsapp-modal-body">
+            <p><?php _e('Envía un mensaje de prueba para verificar la configuración:', 'wp-whatsapp-business'); ?></p>
+            <textarea class="wp-whatsapp-message-input" placeholder="<?php _e('Escribe tu mensaje de prueba aquí...', 'wp-whatsapp-business'); ?>" rows="4"></textarea>
+            <div class="wp-whatsapp-modal-actions">
+                <button type="button" class="button button-primary wp-whatsapp-send-test-message">
+                    <?php _e('Enviar Mensaje', 'wp-whatsapp-business'); ?>
+                </button>
+                <button type="button" class="button wp-whatsapp-modal-cancel">
+                    <?php _e('Cancelar', 'wp-whatsapp-business'); ?>
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-.wp-whatsapp-business-admin-container {
-    margin-top: 20px;
+/* Estilos adicionales para la página de configuración */
+.wp-whatsapp-form-actions {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--wp-whatsapp-border);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
-.tab-content {
-    display: none;
-    padding: 20px 0;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-.form-section {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    padding: 20px;
-    margin: 20px 0;
-    border-radius: 4px;
-}
-
-.form-section h3 {
-    margin-top: 0;
-    color: #23282d;
-}
-
-.business-hours-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 15px;
-    margin-top: 15px;
-}
-
-.business-hour-row {
+.wp-whatsapp-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999999;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px;
-    background: #f9f9f9;
-    border-radius: 4px;
+    justify-content: center;
 }
 
-.day-label {
-    min-width: 80px;
-    font-weight: 600;
-}
-
-.tools-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-}
-
-.tool-card {
+.wp-whatsapp-modal-content {
     background: #fff;
-    border: 1px solid #ccd0d4;
+    border-radius: var(--wp-whatsapp-radius);
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.wp-whatsapp-modal-header {
     padding: 20px;
-    border-radius: 4px;
+    border-bottom: 1px solid var(--wp-whatsapp-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.tool-card h4 {
-    margin-top: 0;
-    color: #23282d;
+.wp-whatsapp-modal-header h3 {
+    margin: 0;
+    color: var(--wp-whatsapp-primary);
 }
 
-.tool-card p {
-    color: #666;
+.wp-whatsapp-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--wp-whatsapp-text-light);
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wp-whatsapp-modal-close:hover {
+    color: var(--wp-whatsapp-text);
+}
+
+.wp-whatsapp-modal-body {
+    padding: 20px;
+}
+
+.wp-whatsapp-modal-body p {
     margin-bottom: 15px;
+    color: var(--wp-whatsapp-text);
 }
 
-.tool-card input[type="file"] {
-    margin-bottom: 10px;
+.wp-whatsapp-phone-input,
+.wp-whatsapp-message-input {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.wp-whatsapp-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .wp-whatsapp-modal-content {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .wp-whatsapp-modal-actions {
+        flex-direction: column;
+    }
+    
+    .wp-whatsapp-form-actions {
+        flex-direction: column;
+    }
 }
 </style>
 
 <script>
 jQuery(document).ready(function($) {
-    // Manejo de tabs
+    // Inicializar pestañas
     $('.nav-tab').on('click', function(e) {
         e.preventDefault();
         
-        const target = $(this).attr('data-tab');
-        
-        // Actualizar tabs activos
+        var target = $(this).data('tab');
+        if (!target) return;
+
+        // Actualizar pestañas activas
         $('.nav-tab').removeClass('nav-tab-active');
         $(this).addClass('nav-tab-active');
-        
-        // Mostrar contenido del tab
+
+        // Mostrar contenido correspondiente
         $('.tab-content').removeClass('active');
-        $('#' + target).addClass('active');
+        $('#' + target + '-tab').addClass('active');
     });
-    
-    // Restablecer configuración
-    $('#reset-settings').on('click', function() {
-        if (confirm('<?php _e('¿Estás seguro de que quieres restablecer toda la configuración? Esta acción no se puede deshacer.', 'wp-whatsapp-business'); ?>')) {
-            // Aquí iría la lógica para restablecer la configuración
-            alert('<?php _e('Configuración restablecida.', 'wp-whatsapp-business'); ?>');
+
+    // Testing de teléfono
+    $('.wp-whatsapp-test-phone').on('click', function() {
+        $('#wp-whatsapp-test-modal').show();
+    });
+
+    // Testing de mensaje
+    $('.wp-whatsapp-test-message').on('click', function() {
+        $('#wp-whatsapp-message-modal').show();
+    });
+
+    // Cerrar modales
+    $('.wp-whatsapp-modal-close, .wp-whatsapp-modal-cancel').on('click', function() {
+        $('.wp-whatsapp-modal').hide();
+    });
+
+    // Cerrar modal al hacer clic fuera
+    $('.wp-whatsapp-modal').on('click', function(e) {
+        if (e.target === this) {
+            $(this).hide();
         }
     });
-    
-    // Manejo de horarios de negocio
-    $('input[type="checkbox"][value="closed"]').on('change', function() {
-        const row = $(this).closest('.business-hour-row');
-        const timeInputs = row.find('input[type="time"]');
-        
-        if ($(this).is(':checked')) {
-            timeInputs.prop('disabled', true);
-        } else {
-            timeInputs.prop('disabled', false);
+
+    // Confirmar testing de teléfono
+    $('.wp-whatsapp-test-phone-confirm').on('click', function() {
+        var phone = $('.wp-whatsapp-phone-input').val();
+        if (!phone) {
+            alert('<?php _e('Por favor ingresa un número de teléfono', 'wp-whatsapp-business'); ?>');
+            return;
         }
+
+        // Aquí iría la lógica AJAX para probar la conexión
+        $('#wp-whatsapp-test-modal').hide();
+    });
+
+    // Enviar mensaje de prueba
+    $('.wp-whatsapp-send-test-message').on('click', function() {
+        var message = $('.wp-whatsapp-message-input').val();
+        if (!message) {
+            alert('<?php _e('Por favor ingresa un mensaje', 'wp-whatsapp-business'); ?>');
+            return;
+        }
+
+        // Aquí iría la lógica AJAX para enviar el mensaje
+        $('#wp-whatsapp-message-modal').hide();
     });
 });
 </script> 

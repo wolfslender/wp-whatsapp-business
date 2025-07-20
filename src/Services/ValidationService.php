@@ -8,482 +8,612 @@
 
 namespace WPWhatsAppBusiness\Services;
 
+use WPWhatsAppBusiness\Services\Interfaces\ValidationServiceInterface;
+
 /**
- * Clase para validar datos del plugin
+ * Servicio de validación completo
  */
-class ValidationService {
+class ValidationService implements ValidationServiceInterface
+{
+    private array $errors = [];
+    private array $validationSchema = [];
 
-    /**
-     * Validar número de teléfono
-     *
-     * @param string $phone_number Número de teléfono a validar
-     * @return bool
-     */
-    public function isValidPhoneNumber(string $phone_number): bool {
+    public function __construct()
+    {
+        $this->initializeValidationSchema();
+    }
+
+    public function validatePhoneNumber(string $phoneNumber, string $countryCode = ''): array
+    {
+        $this->clearErrors();
+        
+        // Validación básica de formato E.164
+        if (empty($phoneNumber)) {
+            $this->addError('phone_number', 'El número de teléfono es requerido');
+            return $this->getErrors();
+        }
+
         // Remover espacios y caracteres especiales
-        $clean_number = preg_replace('/[^0-9+]/', '', $phone_number);
+        $cleanNumber = preg_replace('/[^0-9+]/', '', $phoneNumber);
         
-        // Verificar formato básico
-        if (!preg_match('/^\+[1-9]\d{1,14}$/', $clean_number)) {
-            return false;
+        // Validar formato E.164
+        if (!preg_match('/^\+[1-9]\d{1,14}$/', $cleanNumber)) {
+            $this->addError('phone_number', 'El número debe estar en formato E.164 (+1234567890)');
         }
-        
-        // Verificar longitud mínima (código de país + número)
-        if (strlen($clean_number) < 8) {
-            return false;
+
+        // Validar longitud
+        if (strlen($cleanNumber) < 8 || strlen($cleanNumber) > 16) {
+            $this->addError('phone_number', 'El número debe tener entre 8 y 16 dígitos');
         }
-        
-        // Verificar longitud máxima (según estándar E.164)
-        if (strlen($clean_number) > 16) {
-            return false;
+
+        // Validar código de país si se proporciona
+        if (!empty($countryCode)) {
+            $this->validateCountryCode($cleanNumber, $countryCode);
         }
-        
-        return true;
+
+        return $this->getErrors();
     }
 
-    /**
-     * Validar URL
-     *
-     * @param string $url URL a validar
-     * @return bool
-     */
-    public function isValidUrl(string $url): bool {
-        return filter_var($url, FILTER_VALIDATE_URL) !== false;
-    }
-
-    /**
-     * Validar email
-     *
-     * @param string $email Email a validar
-     * @return bool
-     */
-    public function isValidEmail(string $email): bool {
-        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-    }
-
-    /**
-     * Validar API Key de WhatsApp
-     *
-     * @param string $api_key API Key a validar
-     * @return bool
-     */
-    public function isValidWhatsAppApiKey(string $api_key): bool {
-        // Verificar que no esté vacía
-        if (empty($api_key)) {
-            return false;
-        }
+    public function validateMessage(string $message, array $options = []): array
+    {
+        $this->clearErrors();
         
-        // Verificar formato básico (debe ser una cadena alfanumérica)
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $api_key)) {
-            return false;
+        $maxLength = $options['max_length'] ?? 1000;
+        $minLength = $options['min_length'] ?? 1;
+        $allowHtml = $options['allow_html'] ?? false;
+        $allowEmojis = $options['allow_emojis'] ?? true;
+
+        if (empty($message)) {
+            $this->addError('message', 'El mensaje es requerido');
+            return $this->getErrors();
         }
-        
-        // Verificar longitud mínima
-        if (strlen($api_key) < 10) {
-            return false;
+
+        // Validar longitud
+        $messageLength = mb_strlen($message);
+        if ($messageLength < $minLength) {
+            $this->addError('message', "El mensaje debe tener al menos {$minLength} caracteres");
         }
-        
-        return true;
+
+        if ($messageLength > $maxLength) {
+            $this->addError('message', "El mensaje no puede exceder {$maxLength} caracteres");
+        }
+
+        // Validar HTML si no está permitido
+        if (!$allowHtml && strip_tags($message) !== $message) {
+            $this->addError('message', 'El HTML no está permitido en el mensaje');
+        }
+
+        // Validar emojis si no están permitidos
+        if (!$allowEmojis && $this->containsEmojis($message)) {
+            $this->addError('message', 'Los emojis no están permitidos en el mensaje');
+        }
+
+        // Validar caracteres especiales peligrosos
+        if ($this->containsDangerousCharacters($message)) {
+            $this->addError('message', 'El mensaje contiene caracteres no permitidos');
+        }
+
+        return $this->getErrors();
     }
 
-    /**
-     * Validar configuración del plugin
-     *
-     * @param array $settings Configuración a validar
-     * @return array Array con errores de validación
-     */
-    public function validateSettings(array $settings): array {
-        $errors = [];
-
-        // Validar API Key
-        if (!empty($settings['api_key'])) {
-            if (!$this->isValidWhatsAppApiKey($settings['api_key'])) {
-                $errors['api_key'] = __('La API Key no tiene un formato válido', 'wp-whatsapp-business');
-            }
-        }
-
-        // Validar número de teléfono
-        if (!empty($settings['phone_number'])) {
-            if (!$this->isValidPhoneNumber($settings['phone_number'])) {
-                $errors['phone_number'] = __('El número de teléfono no tiene un formato válido', 'wp-whatsapp-business');
-            }
-        }
-
-        // Validar nombre del negocio
-        if (!empty($settings['business_name'])) {
-            if (strlen($settings['business_name']) > 100) {
-                $errors['business_name'] = __('El nombre del negocio no puede tener más de 100 caracteres', 'wp-whatsapp-business');
-            }
-        }
-
-        // Validar email de administrador
-        if (!empty($settings['notification_settings']['admin_email'])) {
-            if (!$this->isValidEmail($settings['notification_settings']['admin_email'])) {
-                $errors['admin_email'] = __('El email de administrador no es válido', 'wp-whatsapp-business');
-            }
-        }
-
-        // Validar horarios de negocio
-        if (!empty($settings['business_hours'])) {
-            $hours_errors = $this->validateBusinessHours($settings['business_hours']);
-            if (!empty($hours_errors)) {
-                $errors['business_hours'] = $hours_errors;
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Validar horarios de negocio
-     *
-     * @param array $business_hours Horarios a validar
-     * @return array Array con errores de validación
-     */
-    public function validateBusinessHours(array $business_hours): array {
-        $errors = [];
-        $valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-        foreach ($business_hours as $day => $hours) {
-            // Verificar que el día sea válido
-            if (!in_array($day, $valid_days)) {
-                $errors[] = sprintf(__('Día inválido: %s', 'wp-whatsapp-business'), $day);
+    public function validateBusinessHours(array $businessHours): array
+    {
+        $this->clearErrors();
+        
+        $requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        
+        foreach ($requiredDays as $day) {
+            if (!isset($businessHours[$day])) {
+                $this->addError("business_hours.{$day}", "Los horarios para {$day} son requeridos");
                 continue;
             }
 
-            // Si está cerrado, no necesitamos validar más
-            if ($hours === 'closed') {
+            $dayHours = $businessHours[$day];
+            
+            // Validar estructura
+            if (!is_array($dayHours)) {
+                $this->addError("business_hours.{$day}", "Formato inválido para {$day}");
                 continue;
             }
 
-            // Verificar que sea un array
-            if (!is_array($hours)) {
-                $errors[] = sprintf(__('Formato inválido para %s', 'wp-whatsapp-business'), $day);
-                continue;
-            }
-
-            // Validar formato de hora
-            foreach ($hours as $hour) {
-                if (!$this->isValidTimeFormat($hour)) {
-                    $errors[] = sprintf(__('Formato de hora inválido para %s: %s', 'wp-whatsapp-business'), $day, $hour);
+            // Validar campos requeridos
+            $requiredFields = ['open', 'close', 'enabled'];
+            foreach ($requiredFields as $field) {
+                if (!isset($dayHours[$field])) {
+                    $this->addError("business_hours.{$day}.{$field}", "El campo {$field} es requerido para {$day}");
                 }
             }
 
-            // Verificar que haya al menos 2 horas (apertura y cierre)
-            if (count($hours) < 2) {
-                $errors[] = sprintf(__('Debe especificar hora de apertura y cierre para %s', 'wp-whatsapp-business'), $day);
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Validar formato de hora
-     *
-     * @param string $time Hora a validar (formato HH:MM)
-     * @return bool
-     */
-    public function isValidTimeFormat(string $time): bool {
-        return preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $time) === 1;
-    }
-
-    /**
-     * Validar mensaje de WhatsApp
-     *
-     * @param string $message Mensaje a validar
-     * @return array Array con errores de validación
-     */
-    public function validateWhatsAppMessage(string $message): array {
-        $errors = [];
-
-        // Verificar que no esté vacío
-        if (empty(trim($message))) {
-            $errors[] = __('El mensaje no puede estar vacío', 'wp-whatsapp-business');
-        }
-
-        // Verificar longitud máxima
-        if (strlen($message) > 4096) {
-            $errors[] = __('El mensaje no puede tener más de 4096 caracteres', 'wp-whatsapp-business');
-        }
-
-        // Verificar caracteres especiales
-        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $message)) {
-            $errors[] = __('El mensaje contiene caracteres no permitidos', 'wp-whatsapp-business');
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Validar datos de botones para mensajes interactivos
-     *
-     * @param array $buttons Botones a validar
-     * @return array Array con errores de validación
-     */
-    public function validateButtons(array $buttons): array {
-        $errors = [];
-
-        // Verificar número de botones
-        if (empty($buttons)) {
-            $errors[] = __('Debe especificar al menos un botón', 'wp-whatsapp-business');
-        }
-
-        if (count($buttons) > 3) {
-            $errors[] = __('No puede tener más de 3 botones', 'wp-whatsapp-business');
-        }
-
-        foreach ($buttons as $index => $button) {
-            // Verificar estructura del botón
-            if (!isset($button['type']) || !isset($button['reply'])) {
-                $errors[] = sprintf(__('Botón %d: estructura inválida', 'wp-whatsapp-business'), $index + 1);
-                continue;
+            // Validar formato de tiempo
+            if (isset($dayHours['open']) && !$this->isValidTimeFormat($dayHours['open'])) {
+                $this->addError("business_hours.{$day}.open", "Formato de hora inválido para {$day}");
             }
 
-            // Verificar tipo de botón
-            if ($button['type'] !== 'reply') {
-                $errors[] = sprintf(__('Botón %d: tipo inválido', 'wp-whatsapp-business'), $index + 1);
+            if (isset($dayHours['close']) && !$this->isValidTimeFormat($dayHours['close'])) {
+                $this->addError("business_hours.{$day}.close", "Formato de hora inválido para {$day}");
             }
 
-            // Verificar texto del botón
-            if (empty($button['reply']['title'])) {
-                $errors[] = sprintf(__('Botón %d: título requerido', 'wp-whatsapp-business'), $index + 1);
+            // Validar que enabled sea booleano
+            if (isset($dayHours['enabled']) && !is_bool($dayHours['enabled'])) {
+                $this->addError("business_hours.{$day}.enabled", "El campo enabled debe ser true o false para {$day}");
             }
 
-            if (strlen($button['reply']['title']) > 20) {
-                $errors[] = sprintf(__('Botón %d: título demasiado largo', 'wp-whatsapp-business'), $index + 1);
-            }
-
-            if (strlen($button['reply']['id']) > 256) {
-                $errors[] = sprintf(__('Botón %d: ID demasiado largo', 'wp-whatsapp-business'), $index + 1);
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Validar datos de lista para mensajes interactivos
-     *
-     * @param array $sections Secciones a validar
-     * @return array Array con errores de validación
-     */
-    public function validateListSections(array $sections): array {
-        $errors = [];
-
-        // Verificar que haya al menos una sección
-        if (empty($sections)) {
-            $errors[] = __('Debe especificar al menos una sección', 'wp-whatsapp-business');
-        }
-
-        foreach ($sections as $index => $section) {
-            // Verificar estructura de la sección
-            if (!isset($section['title']) || !isset($section['rows'])) {
-                $errors[] = sprintf(__('Sección %d: estructura inválida', 'wp-whatsapp-business'), $index + 1);
-                continue;
-            }
-
-            // Verificar título de la sección
-            if (strlen($section['title']) > 24) {
-                $errors[] = sprintf(__('Sección %d: título demasiado largo', 'wp-whatsapp-business'), $index + 1);
-            }
-
-            // Verificar filas
-            if (empty($section['rows'])) {
-                $errors[] = sprintf(__('Sección %d: debe tener al menos una fila', 'wp-whatsapp-business'), $index + 1);
-            }
-
-            if (count($section['rows']) > 10) {
-                $errors[] = sprintf(__('Sección %d: demasiadas filas', 'wp-whatsapp-business'), $index + 1);
-            }
-
-            foreach ($section['rows'] as $row_index => $row) {
-                if (!isset($row['id']) || !isset($row['title'])) {
-                    $errors[] = sprintf(__('Sección %d, Fila %d: estructura inválida', 'wp-whatsapp-business'), $index + 1, $row_index + 1);
-                }
-
-                if (strlen($row['title']) > 24) {
-                    $errors[] = sprintf(__('Sección %d, Fila %d: título demasiado largo', 'wp-whatsapp-business'), $index + 1, $row_index + 1);
-                }
-
-                if (strlen($row['id']) > 200) {
-                    $errors[] = sprintf(__('Sección %d, Fila %d: ID demasiado largo', 'wp-whatsapp-business'), $index + 1, $row_index + 1);
+            // Validar lógica de horarios si está habilitado
+            if (isset($dayHours['enabled']) && $dayHours['enabled'] && 
+                isset($dayHours['open']) && isset($dayHours['close'])) {
+                
+                if ($dayHours['open'] === $dayHours['close'] && $dayHours['open'] !== '00:00') {
+                    $this->addError("business_hours.{$day}", "Los horarios de apertura y cierre no pueden ser iguales para {$day}");
                 }
             }
         }
 
-        return $errors;
+        return $this->getErrors();
     }
 
-    /**
-     * Validar URL de imagen
-     *
-     * @param string $url URL de la imagen
-     * @return array Array con errores de validación
-     */
-    public function validateImageUrl(string $url): array {
-        $errors = [];
-
-        // Validar formato de URL
-        if (!$this->isValidUrl($url)) {
-            $errors[] = __('URL de imagen inválida', 'wp-whatsapp-business');
-            return $errors;
-        }
-
-        // Verificar extensión de imagen
-        $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-        $extension = strtolower(pathinfo($url, PATHINFO_EXTENSION));
+    public function validateColor(string $color, string $type = 'hex'): array
+    {
+        $this->clearErrors();
         
-        if (!in_array($extension, $allowed_extensions)) {
-            $errors[] = __('Formato de imagen no soportado', 'wp-whatsapp-business');
+        if (empty($color)) {
+            $this->addError('color', 'El color es requerido');
+            return $this->getErrors();
         }
 
-        return $errors;
-    }
-
-    /**
-     * Validar URL de documento
-     *
-     * @param string $url URL del documento
-     * @return array Array con errores de validación
-     */
-    public function validateDocumentUrl(string $url): array {
-        $errors = [];
-
-        // Validar formato de URL
-        if (!$this->isValidUrl($url)) {
-            $errors[] = __('URL del documento inválida', 'wp-whatsapp-business');
-            return $errors;
-        }
-
-        // Verificar extensión de documento
-        $allowed_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
-        $extension = strtolower(pathinfo($url, PATHINFO_EXTENSION));
-        
-        if (!in_array($extension, $allowed_extensions)) {
-            $errors[] = __('Formato de documento no soportado', 'wp-whatsapp-business');
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Sanitizar número de teléfono
-     *
-     * @param string $phone_number Número de teléfono a sanitizar
-     * @return string
-     */
-    public function sanitizePhoneNumber(string $phone_number): string {
-        // Remover todos los caracteres no numéricos excepto el +
-        $sanitized = preg_replace('/[^0-9+]/', '', $phone_number);
-        
-        // Asegurar que tenga el código de país
-        if (!str_starts_with($sanitized, '+')) {
-            $sanitized = '+' . $sanitized;
-        }
-        
-        return $sanitized;
-    }
-
-    /**
-     * Sanitizar mensaje
-     *
-     * @param string $message Mensaje a sanitizar
-     * @return string
-     */
-    public function sanitizeMessage(string $message): string {
-        // Remover caracteres de control
-        $sanitized = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $message);
-        
-        // Limpiar espacios en blanco
-        $sanitized = trim($sanitized);
-        
-        // Limitar longitud
-        if (strlen($sanitized) > 4096) {
-            $sanitized = substr($sanitized, 0, 4096);
-        }
-        
-        return $sanitized;
-    }
-
-    /**
-     * Sanitizar configuración
-     *
-     * @param array $settings Configuración a sanitizar
-     * @return array
-     */
-    public function sanitizeSettings(array $settings): array {
-        $sanitized = [];
-
-        // Sanitizar campos básicos
-        if (isset($settings['api_key'])) {
-            $sanitized['api_key'] = sanitize_text_field($settings['api_key']);
-        }
-
-        if (isset($settings['phone_number'])) {
-            $sanitized['phone_number'] = $this->sanitizePhoneNumber($settings['phone_number']);
-        }
-
-        if (isset($settings['business_name'])) {
-            $sanitized['business_name'] = sanitize_text_field($settings['business_name']);
-        }
-
-        if (isset($settings['enabled'])) {
-            $sanitized['enabled'] = (bool) $settings['enabled'];
-        }
-
-        if (isset($settings['widget_position'])) {
-            $valid_positions = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
-            $sanitized['widget_position'] = in_array($settings['widget_position'], $valid_positions) 
-                ? $settings['widget_position'] 
-                : 'bottom-right';
-        }
-
-        if (isset($settings['widget_text'])) {
-            $sanitized['widget_text'] = $this->sanitizeMessage($settings['widget_text']);
-        }
-
-        // Sanitizar horarios de negocio
-        if (isset($settings['business_hours']) && is_array($settings['business_hours'])) {
-            $sanitized['business_hours'] = $this->sanitizeBusinessHours($settings['business_hours']);
-        }
-
-        return $sanitized;
-    }
-
-    /**
-     * Sanitizar horarios de negocio
-     *
-     * @param array $business_hours Horarios a sanitizar
-     * @return array
-     */
-    private function sanitizeBusinessHours(array $business_hours): array {
-        $sanitized = [];
-        $valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-        foreach ($business_hours as $day => $hours) {
-            if (!in_array($day, $valid_days)) {
-                continue;
-            }
-
-            if ($hours === 'closed') {
-                $sanitized[$day] = 'closed';
-                continue;
-            }
-
-            if (is_array($hours)) {
-                $sanitized_hours = [];
-                foreach ($hours as $hour) {
-                    if ($this->isValidTimeFormat($hour)) {
-                        $sanitized_hours[] = $hour;
-                    }
+        switch ($type) {
+            case 'hex':
+                if (!preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $color)) {
+                    $this->addError('color', 'Formato de color hexadecimal inválido');
                 }
-                if (!empty($sanitized_hours)) {
-                    $sanitized[$day] = $sanitized_hours;
+                break;
+                
+            case 'rgb':
+                if (!preg_match('/^rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$/', $color)) {
+                    $this->addError('color', 'Formato de color RGB inválido');
+                }
+                break;
+                
+            case 'css':
+                // Validar nombres de colores CSS válidos
+                $validCssColors = [
+                    'black', 'white', 'red', 'green', 'blue', 'yellow', 'cyan', 'magenta',
+                    'gray', 'grey', 'orange', 'purple', 'pink', 'brown', 'lime', 'navy',
+                    'teal', 'silver', 'gold', 'maroon', 'olive', 'aqua', 'fuchsia'
+                ];
+                
+                if (!in_array(strtolower($color), $validCssColors) && 
+                    !preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $color) &&
+                    !preg_match('/^rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$/', $color)) {
+                    $this->addError('color', 'Color CSS inválido');
+                }
+                break;
+                
+            default:
+                $this->addError('color', 'Tipo de validación de color inválido');
+        }
+
+        return $this->getErrors();
+    }
+
+    public function validateFileUpload(array $file, array $options = []): array
+    {
+        $this->clearErrors();
+        
+        $maxSize = $options['max_size'] ?? 5242880; // 5MB por defecto
+        $allowedTypes = $options['allowed_types'] ?? ['jpg', 'jpeg', 'png', 'gif'];
+        $maxWidth = $options['max_width'] ?? 1920;
+        $maxHeight = $options['max_height'] ?? 1080;
+
+        // Validar estructura del archivo
+        if (!isset($file['tmp_name']) || !isset($file['name']) || !isset($file['size'])) {
+            $this->addError('file', 'Estructura de archivo inválida');
+            return $this->getErrors();
+        }
+
+        // Validar si se subió correctamente
+        if (!is_uploaded_file($file['tmp_name'])) {
+            $this->addError('file', 'El archivo no se subió correctamente');
+        }
+
+        // Validar tamaño
+        if ($file['size'] > $maxSize) {
+            $this->addError('file', "El archivo excede el tamaño máximo permitido (" . $this->formatBytes($maxSize) . ")");
+        }
+
+        // Validar tipo de archivo
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($fileExtension, $allowedTypes)) {
+            $this->addError('file', "Tipo de archivo no permitido. Tipos válidos: " . implode(', ', $allowedTypes));
+        }
+
+        // Validar contenido del archivo
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        $allowedMimeTypes = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif'
+        ];
+
+        if (isset($allowedMimeTypes[$fileExtension]) && $mimeType !== $allowedMimeTypes[$fileExtension]) {
+            $this->addError('file', 'El contenido del archivo no coincide con su extensión');
+        }
+
+        // Validar dimensiones si es una imagen
+        if (in_array($fileExtension, ['jpg', 'jpeg', 'png', 'gif'])) {
+            $imageInfo = getimagesize($file['tmp_name']);
+            if ($imageInfo === false) {
+                $this->addError('file', 'No se pudo obtener información de la imagen');
+            } else {
+                list($width, $height) = $imageInfo;
+                if ($width > $maxWidth || $height > $maxHeight) {
+                    $this->addError('file', "Las dimensiones de la imagen exceden el máximo permitido ({$maxWidth}x{$maxHeight})");
                 }
             }
         }
 
-        return $sanitized;
+        return $this->getErrors();
+    }
+
+    public function validateUrl(string $url, array $options = []): array
+    {
+        $this->clearErrors();
+        
+        $allowedSchemes = $options['allowed_schemes'] ?? ['http', 'https'];
+        $maxLength = $options['max_length'] ?? 2048;
+
+        if (empty($url)) {
+            $this->addError('url', 'La URL es requerida');
+            return $this->getErrors();
+        }
+
+        // Validar longitud
+        if (strlen($url) > $maxLength) {
+            $this->addError('url', "La URL no puede exceder {$maxLength} caracteres");
+        }
+
+        // Validar formato básico
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            $this->addError('url', 'Formato de URL inválido');
+        } else {
+            // Validar esquema
+            $parsedUrl = parse_url($url);
+            if (isset($parsedUrl['scheme']) && !in_array($parsedUrl['scheme'], $allowedSchemes)) {
+                $this->addError('url', "Esquema no permitido. Esquemas válidos: " . implode(', ', $allowedSchemes));
+            }
+
+            // Validar host
+            if (!isset($parsedUrl['host']) || empty($parsedUrl['host'])) {
+                $this->addError('url', 'La URL debe tener un host válido');
+            }
+        }
+
+        return $this->getErrors();
+    }
+
+    public function validateEmail(string $email): array
+    {
+        $this->clearErrors();
+        
+        if (empty($email)) {
+            $this->addError('email', 'El email es requerido');
+            return $this->getErrors();
+        }
+
+        // Validar formato básico
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->addError('email', 'Formato de email inválido');
+        } else {
+            // Validaciones adicionales
+            $parts = explode('@', $email);
+            $localPart = $parts[0];
+            $domain = $parts[1];
+
+            // Validar longitud de parte local
+            if (strlen($localPart) > 64) {
+                $this->addError('email', 'La parte local del email es demasiado larga');
+            }
+
+            // Validar longitud del dominio
+            if (strlen($domain) > 253) {
+                $this->addError('email', 'El dominio del email es demasiado largo');
+            }
+
+            // Validar caracteres especiales en parte local
+            if (!preg_match('/^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+$/', $localPart)) {
+                $this->addError('email', 'La parte local del email contiene caracteres no permitidos');
+            }
+        }
+
+        return $this->getErrors();
+    }
+
+    public function validateConfig(array $config): array
+    {
+        $this->clearErrors();
+        
+        $schema = $this->getValidationSchema();
+        
+        foreach ($schema as $field => $rules) {
+            $value = $this->getNestedValue($config, $field);
+            
+            // Validar campo requerido
+            if (isset($rules['required']) && $rules['required'] && empty($value)) {
+                $this->addError($field, "El campo {$field} es requerido");
+                continue;
+            }
+
+            // Si el campo no es requerido y está vacío, continuar
+            if (empty($value)) {
+                continue;
+            }
+
+            // Validar tipo
+            if (isset($rules['type'])) {
+                $this->validateType($field, $value, $rules['type']);
+            }
+
+            // Validar longitud mínima
+            if (isset($rules['min_length']) && is_string($value)) {
+                if (mb_strlen($value) < $rules['min_length']) {
+                    $this->addError($field, "El campo {$field} debe tener al menos {$rules['min_length']} caracteres");
+                }
+            }
+
+            // Validar longitud máxima
+            if (isset($rules['max_length']) && is_string($value)) {
+                if (mb_strlen($value) > $rules['max_length']) {
+                    $this->addError($field, "El campo {$field} no puede exceder {$rules['max_length']} caracteres");
+                }
+            }
+
+            // Validar patrón
+            if (isset($rules['pattern']) && is_string($value)) {
+                if (!preg_match($rules['pattern'], $value)) {
+                    $this->addError($field, "El campo {$field} no cumple con el formato requerido");
+                }
+            }
+        }
+
+        return $this->getErrors();
+    }
+
+    public function sanitize($input, string $type = 'text')
+    {
+        switch ($type) {
+            case 'text':
+                return sanitize_text_field($input);
+                
+            case 'textarea':
+                return sanitize_textarea_field($input);
+                
+            case 'email':
+                return sanitize_email($input);
+                
+            case 'url':
+                return esc_url_raw($input);
+                
+            case 'phone':
+                return preg_replace('/[^0-9+]/', '', $input);
+                
+            case 'color':
+                return sanitize_hex_color($input);
+                
+            case 'int':
+                return intval($input);
+                
+            case 'float':
+                return floatval($input);
+                
+            case 'bool':
+                return (bool) $input;
+                
+            case 'array':
+                return is_array($input) ? array_map([$this, 'sanitize'], $input) : [];
+                
+            case 'html':
+                return wp_kses_post($input);
+                
+            case 'filename':
+                return sanitize_file_name($input);
+                
+            default:
+                return $input;
+        }
+    }
+
+    public function getErrors(): array
+    {
+        return $this->errors;
+    }
+
+    public function clearErrors(): void
+    {
+        $this->errors = [];
+    }
+
+    public function hasErrors(): bool
+    {
+        return !empty($this->errors);
+    }
+
+    private function initializeValidationSchema(): void
+    {
+        $this->validationSchema = [
+            'api_key' => [
+                'type' => 'string',
+                'required' => true,
+                'min_length' => 1,
+                'max_length' => 255,
+            ],
+            'phone_number_id' => [
+                'type' => 'string',
+                'required' => true,
+                'pattern' => '/^\d+$/',
+            ],
+            'phone_number' => [
+                'type' => 'string',
+                'required' => true,
+                'pattern' => '/^\+[1-9]\d{1,14}$/',
+            ],
+            'business_name' => [
+                'type' => 'string',
+                'required' => true,
+                'min_length' => 1,
+                'max_length' => 100,
+            ],
+            'enabled' => [
+                'type' => 'boolean',
+                'required' => false,
+            ],
+            'business_hours' => [
+                'type' => 'array',
+                'required' => false,
+            ],
+            'widget_settings' => [
+                'type' => 'array',
+                'required' => false,
+            ],
+            'message_templates' => [
+                'type' => 'array',
+                'required' => false,
+            ],
+            'rate_limit_settings' => [
+                'type' => 'array',
+                'required' => false,
+            ],
+        ];
+    }
+
+    private function addError(string $field, string $message): void
+    {
+        $this->errors[$field][] = $message;
+    }
+
+    private function validateCountryCode(string $phoneNumber, string $countryCode): void
+    {
+        $countryCodes = [
+            'US' => '+1',
+            'CA' => '+1',
+            'MX' => '+52',
+            'ES' => '+34',
+            'AR' => '+54',
+            'BR' => '+55',
+            'CO' => '+57',
+            'PE' => '+51',
+            'VE' => '+58',
+            'CL' => '+56',
+            'EC' => '+593',
+            'BO' => '+591',
+            'PY' => '+595',
+            'UY' => '+598',
+            'GY' => '+592',
+            'SR' => '+597',
+            'GF' => '+594',
+            'FK' => '+500',
+        ];
+
+        if (isset($countryCodes[$countryCode])) {
+            $expectedPrefix = $countryCodes[$countryCode];
+            if (strpos($phoneNumber, $expectedPrefix) !== 0) {
+                $this->addError('phone_number', "El número no coincide con el código de país {$countryCode}");
+            }
+        }
+    }
+
+    private function containsEmojis(string $text): bool
+    {
+        return preg_match('/[\x{1F600}-\x{1F64F}]|[\x{1F300}-\x{1F5FF}]|[\x{1F680}-\x{1F6FF}]|[\x{1F1E0}-\x{1F1FF}]|[\x{2600}-\x{26FF}]|[\x{2700}-\x{27BF}]/u', $text);
+    }
+
+    private function containsDangerousCharacters(string $text): bool
+    {
+        $dangerousPatterns = [
+            '/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/mi',
+            '/javascript:/i',
+            '/vbscript:/i',
+            '/onload=/i',
+            '/onerror=/i',
+            '/onclick=/i',
+        ];
+
+        foreach ($dangerousPatterns as $pattern) {
+            if (preg_match($pattern, $text)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isValidTimeFormat(string $time): bool
+    {
+        return preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $time);
+    }
+
+    private function validateType(string $field, $value, string $type): void
+    {
+        $isValid = false;
+
+        switch ($type) {
+            case 'string':
+                $isValid = is_string($value);
+                break;
+            case 'int':
+            case 'integer':
+                $isValid = is_int($value) || (is_string($value) && ctype_digit($value));
+                break;
+            case 'float':
+            case 'double':
+                $isValid = is_float($value) || is_numeric($value);
+                break;
+            case 'bool':
+            case 'boolean':
+                $isValid = is_bool($value) || in_array($value, [0, 1, '0', '1', true, false], true);
+                break;
+            case 'array':
+                $isValid = is_array($value);
+                break;
+            case 'email':
+                $isValid = filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
+                break;
+            case 'url':
+                $isValid = filter_var($value, FILTER_VALIDATE_URL) !== false;
+                break;
+        }
+
+        if (!$isValid) {
+            $this->addError($field, "El campo {$field} debe ser de tipo {$type}");
+        }
+    }
+
+    private function getNestedValue(array $array, string $key)
+    {
+        $keys = explode('.', $key);
+        $current = $array;
+
+        foreach ($keys as $k) {
+            if (!is_array($current) || !array_key_exists($k, $current)) {
+                return null;
+            }
+            $current = $current[$k];
+        }
+
+        return $current;
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+        
+        $bytes /= pow(1024, $pow);
+        
+        return round($bytes, 2) . ' ' . $units[$pow];
     }
 } 

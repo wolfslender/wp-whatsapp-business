@@ -101,15 +101,17 @@ final class Plugin {
      * @return void
      */
     private function registerServices(): void {
-        // Servicios básicos
-        $this->container->singleton(ConfigService::class, function() {
-            return new ConfigService();
-        });
-
+        // Servicios básicos - ValidationService primero (sin dependencias)
         $this->container->singleton(ValidationService::class, function() {
             return new ValidationService();
         });
 
+        // ConfigService después (depende de ValidationService)
+        $this->container->singleton(ConfigService::class, function() {
+            return new ConfigService($this->container->get(ValidationService::class));
+        });
+
+        // WhatsAppService al final (depende de ambos)
         $this->container->singleton(WhatsAppService::class, function() {
             return new WhatsAppService(
                 $this->container->get(ConfigService::class),
@@ -312,4 +314,4 @@ final class Plugin {
     public function run(): void {
         $this->loader->run();
     }
-} 
+}

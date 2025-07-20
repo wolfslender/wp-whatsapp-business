@@ -1,0 +1,660 @@
+/**
+ * Estilos CSS para la administración de WhatsApp Business
+ *
+ * @package WPWhatsAppBusiness\Admin
+ * @since 1.0.0
+ */
+
+/* ==========================================================================
+   Variables CSS
+   ========================================================================== */
+
+:root {
+    --wp-whatsapp-primary: #0073aa;
+    --wp-whatsapp-secondary: #25D366;
+    --wp-whatsapp-success: #46b450;
+    --wp-whatsapp-warning: #ffb900;
+    --wp-whatsapp-error: #dc3232;
+    --wp-whatsapp-info: #00a0d2;
+    --wp-whatsapp-border: #ccd0d4;
+    --wp-whatsapp-background: #f9f9f9;
+    --wp-whatsapp-text: #444;
+    --wp-whatsapp-text-light: #666;
+    --wp-whatsapp-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --wp-whatsapp-radius: 4px;
+    --wp-whatsapp-transition: all 0.3s ease;
+}
+
+/* ==========================================================================
+   Layout y Estructura
+   ========================================================================== */
+
+.wp-whatsapp-admin {
+    margin: 20px 0;
+}
+
+.wp-whatsapp-header {
+    background: #fff;
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--wp-whatsapp-shadow);
+}
+
+.wp-whatsapp-header h1 {
+    margin: 0 0 10px 0;
+    color: var(--wp-whatsapp-primary);
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.wp-whatsapp-header .description {
+    color: var(--wp-whatsapp-text-light);
+    margin: 0;
+    font-size: 14px;
+}
+
+/* ==========================================================================
+   Sistema de Pestañas
+   ========================================================================== */
+
+.wp-whatsapp-tabs {
+    background: #fff;
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    overflow: hidden;
+    box-shadow: var(--wp-whatsapp-shadow);
+}
+
+.wp-whatsapp-tabs .nav-tab-wrapper {
+    background: var(--wp-whatsapp-background);
+    border-bottom: 1px solid var(--wp-whatsapp-border);
+    margin: 0;
+    padding: 0;
+}
+
+.wp-whatsapp-tabs .nav-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    color: var(--wp-whatsapp-text);
+    font-weight: 500;
+    margin: 0;
+    padding: 15px 20px;
+    text-decoration: none;
+    transition: var(--wp-whatsapp-transition);
+}
+
+.wp-whatsapp-tabs .nav-tab:hover {
+    background: #fff;
+    color: var(--wp-whatsapp-primary);
+    border-bottom-color: var(--wp-whatsapp-primary);
+}
+
+.wp-whatsapp-tabs .nav-tab-active {
+    background: #fff;
+    color: var(--wp-whatsapp-primary);
+    border-bottom-color: var(--wp-whatsapp-primary);
+}
+
+.tab-content {
+    display: none;
+    padding: 30px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ==========================================================================
+   Formularios
+   ========================================================================== */
+
+.wp-whatsapp-form {
+    max-width: 100%;
+}
+
+.wp-whatsapp-form .form-table {
+    margin-top: 0;
+}
+
+.wp-whatsapp-form .form-table th {
+    padding: 20px 10px 20px 0;
+    width: 200px;
+    font-weight: 600;
+    color: var(--wp-whatsapp-text);
+}
+
+.wp-whatsapp-form .form-table td {
+    padding: 15px 10px;
+}
+
+.wp-whatsapp-form input[type="text"],
+.wp-whatsapp-form input[type="email"],
+.wp-whatsapp-form input[type="password"],
+.wp-whatsapp-form input[type="url"],
+.wp-whatsapp-form input[type="number"],
+.wp-whatsapp-form textarea,
+.wp-whatsapp-form select {
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    transition: var(--wp-whatsapp-transition);
+}
+
+.wp-whatsapp-form input[type="text"]:focus,
+.wp-whatsapp-form input[type="email"]:focus,
+.wp-whatsapp-form input[type="password"]:focus,
+.wp-whatsapp-form input[type="url"]:focus,
+.wp-whatsapp-form input[type="number"]:focus,
+.wp-whatsapp-form textarea:focus,
+.wp-whatsapp-form select:focus {
+    border-color: var(--wp-whatsapp-primary);
+    box-shadow: 0 0 0 1px var(--wp-whatsapp-primary);
+    outline: none;
+}
+
+.wp-whatsapp-form input.error,
+.wp-whatsapp-form textarea.error,
+.wp-whatsapp-form select.error {
+    border-color: var(--wp-whatsapp-error);
+    box-shadow: 0 0 0 1px var(--wp-whatsapp-error);
+}
+
+.field-error {
+    color: var(--wp-whatsapp-error);
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+}
+
+.wp-whatsapp-form .description {
+    color: var(--wp-whatsapp-text-light);
+    font-style: italic;
+    margin-top: 5px;
+    font-size: 13px;
+}
+
+/* ==========================================================================
+   Checkboxes y Radio Buttons
+   ========================================================================== */
+
+.wp-whatsapp-form input[type="checkbox"],
+.wp-whatsapp-form input[type="radio"] {
+    margin-right: 8px;
+}
+
+.wp-whatsapp-form .checkbox-group,
+.wp-whatsapp-form .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wp-whatsapp-form .checkbox-group label,
+.wp-whatsapp-form .radio-group label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   Color Picker
+   ========================================================================== */
+
+.wp-whatsapp-color-picker {
+    display: inline-block;
+}
+
+.wp-whatsapp-color-picker .wp-color-result {
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 5px 10px;
+    height: auto;
+    min-height: 30px;
+}
+
+.wp-whatsapp-color-picker .wp-color-result-text {
+    line-height: 1.4;
+    padding: 0;
+}
+
+/* ==========================================================================
+   Media Uploader
+   ========================================================================== */
+
+.wp-whatsapp-media-upload {
+    display: inline-block;
+    background: var(--wp-whatsapp-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 8px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 14px;
+    transition: var(--wp-whatsapp-transition);
+}
+
+.wp-whatsapp-media-upload:hover {
+    background: #005a87;
+    color: #fff;
+}
+
+.media-preview {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--wp-whatsapp-background);
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-preview:empty::before {
+    content: "No se ha seleccionado ninguna imagen";
+    color: var(--wp-whatsapp-text-light);
+    font-style: italic;
+}
+
+/* ==========================================================================
+   Rich Text Editor
+   ========================================================================== */
+
+.wp-whatsapp-rich-editor {
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+}
+
+.wp-whatsapp-rich-editor .mce-toolbar {
+    border-bottom: 1px solid var(--wp-whatsapp-border);
+}
+
+/* ==========================================================================
+   Widget Preview
+   ========================================================================== */
+
+.widget-preview-container {
+    background: #fff;
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.widget-preview-container h3 {
+    margin-top: 0;
+    color: var(--wp-whatsapp-primary);
+    border-bottom: 1px solid var(--wp-whatsapp-border);
+    padding-bottom: 10px;
+}
+
+#widget-preview {
+    min-height: 200px;
+    border: 2px dashed var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--wp-whatsapp-background);
+    transition: var(--wp-whatsapp-transition);
+}
+
+#widget-preview.loading {
+    border-color: var(--wp-whatsapp-primary);
+    background: #fff;
+}
+
+#widget-preview.loading::before {
+    content: "";
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--wp-whatsapp-border);
+    border-top: 3px solid var(--wp-whatsapp-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.preview-error {
+    color: var(--wp-whatsapp-error);
+    text-align: center;
+    font-style: italic;
+}
+
+/* ==========================================================================
+   Business Hours
+   ========================================================================== */
+
+.business-hours-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.business-hour-item {
+    background: var(--wp-whatsapp-background);
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 15px;
+}
+
+.business-hour-item h4 {
+    margin: 0 0 10px 0;
+    color: var(--wp-whatsapp-primary);
+    font-size: 16px;
+}
+
+.business-hour-fields {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.business-hour-fields input[type="time"] {
+    width: 100%;
+    max-width: none;
+}
+
+.business-hour-fields .time-separator {
+    text-align: center;
+    color: var(--wp-whatsapp-text-light);
+    font-weight: bold;
+}
+
+/* ==========================================================================
+   Bulk Actions
+   ========================================================================== */
+
+.bulk-actions-container {
+    background: #fff;
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.bulk-actions-container select {
+    max-width: 200px;
+}
+
+.bulk-actions-container .button {
+    margin: 0;
+}
+
+.bulk-count {
+    color: var(--wp-whatsapp-text-light);
+    font-size: 14px;
+    margin-left: auto;
+}
+
+/* ==========================================================================
+   Import/Export
+   ========================================================================== */
+
+.import-export-container {
+    background: #fff;
+    border: 1px solid var(--wp-whatsapp-border);
+    border-radius: var(--wp-whatsapp-radius);
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.import-export-container h3 {
+    margin-top: 0;
+    color: var(--wp-whatsapp-primary);
+}
+
+.import-export-actions {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.import-export-actions .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==========================================================================
+   Notificaciones
+   ========================================================================== */
+
+.wp-whatsapp-notification {
+    position: fixed;
+    top: 32px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: var(--wp-whatsapp-radius);
+    color: #fff;
+    font-weight: 500;
+    z-index: 999999;
+    box-shadow: var(--wp-whatsapp-shadow);
+    animation: slideIn 0.3s ease;
+}
+
+.wp-whatsapp-notification.wp-whatsapp-success {
+    background: var(--wp-whatsapp-success);
+}
+
+.wp-whatsapp-notification.wp-whatsapp-error {
+    background: var(--wp-whatsapp-error);
+}
+
+.wp-whatsapp-notification.wp-whatsapp-warning {
+    background: var(--wp-whatsapp-warning);
+}
+
+.wp-whatsapp-notification.wp-whatsapp-info {
+    background: var(--wp-whatsapp-info);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.wp-whatsapp-loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+}
+
+.wp-whatsapp-loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--wp-whatsapp-border);
+    border-top: 4px solid var(--wp-whatsapp-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* ==========================================================================
+   Responsive Design
+   ========================================================================== */
+
+@media (max-width: 782px) {
+    .wp-whatsapp-form .form-table th {
+        width: 100%;
+        padding: 10px 0 5px 0;
+    }
+    
+    .wp-whatsapp-form .form-table td {
+        padding: 0 0 15px 0;
+    }
+    
+    .business-hour-fields {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+    
+    .business-hour-fields .time-separator {
+        display: none;
+    }
+    
+    .bulk-actions-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .bulk-count {
+        margin-left: 0;
+        text-align: center;
+    }
+    
+    .import-export-actions {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 600px) {
+    .wp-whatsapp-tabs .nav-tab {
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+    
+    .tab-content {
+        padding: 20px 15px;
+    }
+    
+    .business-hours-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   Accessibility
+   ========================================================================== */
+
+/* Navegación por teclado */
+.wp-whatsapp-form.keyboard-navigation input:focus,
+.wp-whatsapp-form.keyboard-navigation textarea:focus,
+.wp-whatsapp-form.keyboard-navigation select:focus {
+    outline: 2px solid var(--wp-whatsapp-primary);
+    outline-offset: 2px;
+}
+
+/* Alto contraste */
+@media (prefers-contrast: high) {
+    .wp-whatsapp-form input,
+    .wp-whatsapp-form textarea,
+    .wp-whatsapp-form select {
+        border-width: 2px;
+    }
+    
+    .wp-whatsapp-tabs .nav-tab {
+        border-bottom-width: 3px;
+    }
+}
+
+/* Reducción de movimiento */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ==========================================================================
+   Estados de Error y Éxito
+   ========================================================================== */
+
+.wp-whatsapp-form .field-group.success input,
+.wp-whatsapp-form .field-group.success textarea,
+.wp-whatsapp-form .field-group.success select {
+    border-color: var(--wp-whatsapp-success);
+    box-shadow: 0 0 0 1px var(--wp-whatsapp-success);
+}
+
+.wp-whatsapp-form .field-group.success .field-success {
+    color: var(--wp-whatsapp-success);
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+}
+
+/* ==========================================================================
+   Utilidades
+   ========================================================================== */
+
+.wp-whatsapp-hidden {
+    display: none !important;
+}
+
+.wp-whatsapp-text-center {
+    text-align: center;
+}
+
+.wp-whatsapp-text-right {
+    text-align: right;
+}
+
+.wp-whatsapp-mt-10 {
+    margin-top: 10px;
+}
+
+.wp-whatsapp-mb-10 {
+    margin-bottom: 10px;
+}
+
+.wp-whatsapp-ml-10 {
+    margin-left: 10px;
+}
+
+.wp-whatsapp-mr-10 {
+    margin-right: 10px;
+}
+
+.wp-whatsapp-p-20 {
+    padding: 20px;
+}
+
+.wp-whatsapp-bg-light {
+    background: var(--wp-whatsapp-background);
+}
+
+.wp-whatsapp-border {
+    border: 1px solid var(--wp-whatsapp-border);
+}
+
+.wp-whatsapp-rounded {
+    border-radius: var(--wp-whatsapp-radius);
+} 
