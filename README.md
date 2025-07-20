@@ -258,7 +258,7 @@ Este proyecto está licenciado bajo la Licencia GPL v2 o posterior - ver el arch
 Para soporte técnico, por favor contacta a través de:
 
 - **Email**: oliverodev@hotmail.com
-- **WhatsApp**: +1829-983-2502
+- **WhatsApp**: +1 (829) 983-2502
 - **Documentación**: Cooming Soon 
 
 ## Changelog
