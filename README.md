@@ -278,4 +278,8 @@ Desarrollado con ❤️ para la comunidad de WordPress.
 
 ---
 
+<<<<<<< HEAD
 **Nota**: Este plugin requiere una cuenta de WhatsApp Business API activa para funcionar correctamente.
+=======
+**Nota**: Este plugin requiere una cuenta de WhatsApp Business API activa para funcionar correctamente. 
+>>>>>>> 1480a641d367786f9fe6f4acb22bb5357fe619b7
