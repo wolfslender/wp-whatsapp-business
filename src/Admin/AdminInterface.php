@@ -517,14 +517,23 @@ class AdminInterface {
             true
         );
 
-        wp_localize_script('wp-whatsapp-business-admin', 'wpWhatsAppBusiness', [
+        wp_localize_script('wp-whatsapp-business-admin', 'wpWhatsAppAdminVars', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('wp_whatsapp_business_nonce'),
             'strings' => [
                 'confirmDelete' => __('¿Estás seguro de que quieres eliminar este elemento?', 'wp-whatsapp-business'),
                 'saving' => __('Guardando...', 'wp-whatsapp-business'),
                 'saved' => __('Guardado correctamente', 'wp-whatsapp-business'),
-                'error' => __('Error al guardar', 'wp-whatsapp-business')
+                'error' => __('Error al guardar', 'wp-whatsapp-business'),
+                'previewError' => __('No se pudo generar la vista previa del widget.', 'wp-whatsapp-business'),
+                'selectAction' => __('Selecciona una acción para aplicar.', 'wp-whatsapp-business'),
+                'selectItems' => __('Selecciona al menos un elemento.', 'wp-whatsapp-business'),
+                'confirmBulkAction' => __('¿Estás seguro de aplicar esta acción a los elementos seleccionados?', 'wp-whatsapp-business'),
+                'ajaxError' => __('Ocurrió un error de comunicación con el servidor.', 'wp-whatsapp-business'),
+                'fieldRequired' => __('Este campo es obligatorio.', 'wp-whatsapp-business'),
+                'enterPhone' => __('Por favor ingresa un número de teléfono válido.', 'wp-whatsapp-business'),
+                'testError' => __('No se pudo probar la conexión con WhatsApp.', 'wp-whatsapp-business'),
+                'selectMedia' => __('Selecciona una imagen', 'wp-whatsapp-business')
             ]
         ]);
     }
